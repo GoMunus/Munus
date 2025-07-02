@@ -18,9 +18,11 @@ import { JobProvider } from './contexts/JobContext';
 import { useAuth } from './contexts/AuthContext';
 import { useTheme } from './contexts/ThemeContext';
 import './styles/themes.css';
+import { FAQPage } from './components/faqs/FAQPage';
+import { ContactPage } from './components/contact/ContactPage';
 
 const AppContent: React.FC = () => {
-  const [currentView, setCurrentView] = useState<'home' | 'jobs' | 'resume' | 'profile' | 'create-profile' | 'dashboard' | 'post-job' | 'candidates'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'jobs' | 'resume' | 'profile' | 'create-profile' | 'dashboard' | 'post-job' | 'candidates' | 'faqs' | 'contact'>('home');
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<'login' | 'register'>('login');
   const { isAuthenticated, isEmployer, isJobSeeker, user, loading } = useAuth();
@@ -29,7 +31,9 @@ const AppContent: React.FC = () => {
 
   // Reset to home page when user logs out
   useEffect(() => {
-    if (!isAuthenticated && currentView !== 'home' && currentView !== 'create-profile') {
+    // Only redirect to home if trying to access protected views
+    const protectedViews = ['profile', 'dashboard', 'post-job', 'candidates'];
+    if (!isAuthenticated && protectedViews.includes(currentView)) {
       setCurrentView('home');
     }
   }, [isAuthenticated, currentView]);
@@ -75,6 +79,9 @@ const AppContent: React.FC = () => {
     setCurrentView('home');
   };
 
+  const handleFindJobs = () => setCurrentView('jobs');
+  const handleResumeBuilder = () => setCurrentView('resume');
+
   // Show loading spinner during initial auth check
   if (loading) {
     return (
@@ -94,7 +101,7 @@ const AppContent: React.FC = () => {
     try {
       switch (currentView) {
         case 'home':
-          return <HomePage onGetStarted={handleGetStarted} onSignIn={handleSignIn} />;
+          return <HomePage onGetStarted={handleGetStarted} onSignIn={handleSignIn} onFindJobs={handleFindJobs} onResumeBuilder={handleResumeBuilder} />;
         case 'create-profile':
           return (
             <ProfileCreation 
@@ -151,8 +158,12 @@ const AppContent: React.FC = () => {
           );
         case 'profile':
           return <ProfilePage onNavigate={setCurrentView} />;
+        case 'faqs':
+          return <FAQPage />;
+        case 'contact':
+          return <ContactPage />;
         default:
-          return <HomePage onGetStarted={handleGetStarted} onSignIn={handleSignIn} />;
+          return <HomePage onGetStarted={handleGetStarted} onSignIn={handleSignIn} onFindJobs={handleFindJobs} onResumeBuilder={handleResumeBuilder} />;
       }
     } catch (error) {
       console.error('Error rendering content:', error);
@@ -184,7 +195,7 @@ const AppContent: React.FC = () => {
         : 'bg-gradient-to-br from-gray-900 via-gray-900 to-blue-900 dark-neon bg-dark-pattern'
     }`}>
       <Header 
-        onNavigate={setCurrentView} 
+        onNavigate={(view) => setCurrentView(view)}
         currentView={currentView}
         onGetStarted={handleGetStarted}
         onSignIn={handleSignIn}

@@ -8,9 +8,11 @@ import { useTheme } from '../../contexts/ThemeContext';
 interface HomePageProps {
   onGetStarted: () => void;
   onSignIn: () => void;
+  onFindJobs: () => void;
+  onResumeBuilder: () => void;
 }
 
-export const HomePage: React.FC<HomePageProps> = ({ onGetStarted, onSignIn }) => {
+export const HomePage: React.FC<HomePageProps> = ({ onGetStarted, onSignIn, onFindJobs, onResumeBuilder }) => {
   const { theme } = useTheme();
 
   const features = [

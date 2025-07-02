@@ -10,7 +10,7 @@ import { userService } from '../../services/userService';
 import { useApi } from '../../hooks/useApi';
 
 interface ProfilePageProps {
-  onNavigate?: (view: string) => void;
+  onNavigate?: (view: 'home' | 'jobs' | 'resume' | 'profile' | 'create-profile' | 'dashboard' | 'post-job' | 'candidates') => void;
 }
 
 export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {

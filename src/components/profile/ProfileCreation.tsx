@@ -1,11 +1,15 @@
-import React, { useState } from 'react';
-import { ArrowRight, ArrowLeft, User, Mail, Phone, MapPin, Briefcase, GraduationCap, Upload, Camera, CheckCircle, Star, Zap, Building, Users, Globe, Award } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ArrowRight, ArrowLeft, User, Mail, Phone, MapPin, Briefcase, GraduationCap, Upload, Camera, CheckCircle, Star, Zap, Building, Users, Globe, Award, XCircle } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Card } from '../ui/Card';
 import { Badge } from '../ui/Badge';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import PhoneInput from 'react-phone-input-2';
+import 'react-phone-input-2/lib/material.css';
+import { Country, State, City } from 'country-state-city';
+import { api } from '../../services/api';
 
 interface ProfileCreationProps {
   onComplete: () => void;
@@ -85,6 +89,16 @@ export const ProfileCreation: React.FC<ProfileCreationProps> = ({ onComplete, on
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { register } = useAuth();
   const { theme } = useTheme();
+  const [country, setCountry] = useState('IN');
+  const [state, setState] = useState('');
+  const [city, setCity] = useState('');
+  const [states, setStates] = useState<ReturnType<typeof State.getStatesOfCountry>>([]);
+  const [cities, setCities] = useState<ReturnType<typeof City.getCitiesOfState>>([]);
+  const [otpSent, setOtpSent] = useState(false);
+  const [otp, setOtp] = useState('');
+  const [otpError, setOtpError] = useState('');
+  const [otpVerified, setOtpVerified] = useState(false);
+  const [otpLoading, setOtpLoading] = useState(false);
 
   const steps = profileData.userType === 'jobseeker' ? jobSeekerSteps : employerSteps;
 
@@ -211,6 +225,65 @@ export const ProfileCreation: React.FC<ProfileCreationProps> = ({ onComplete, on
       setIsSubmitting(false);
     }
   };
+
+  const handleSendOtp = async () => {
+    setOtpLoading(true);
+    setOtpError('');
+    try {
+      await api.sendOtp('+91' + profileData.phone);
+      setOtpSent(true);
+      setOtp('');
+    } catch (err: any) {
+      setOtpSent(true); // Still show OTP box so user can retry
+      setOtpError(err?.response?.data?.detail || err.message || 'Failed to send OTP');
+      console.log('OTP send error:', err);
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    setOtpLoading(true);
+    setOtpError('');
+    try {
+      await api.verifyOtp('+91' + profileData.phone, otp);
+      setOtpVerified(true);
+      setOtpError('');
+    } catch (err: any) {
+      setOtpError(err.message || 'Invalid OTP. Please try again.');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handlePhoneChange = (value: string) => {
+    updateProfileData('phone', value);
+    setOtpSent(false);
+    setOtpVerified(false);
+    setOtp('');
+    setOtpError('');
+  };
+
+  useEffect(() => {
+    if (country) {
+      const stateList = State.getStatesOfCountry(country);
+      setStates(stateList);
+      setState('');
+      setCity('');
+      setCities([]);
+    }
+  }, [country]);
+
+  useEffect(() => {
+    if (state) {
+      const cityList = City.getCitiesOfState(country, state);
+      setCities(cityList);
+      setCity('');
+    } else {
+      setCities([]);
+      setCity('');
+    }
+  }, [state, country]);
 
   const renderRoleSelection = () => (
     <div className="space-y-6">
@@ -358,29 +431,122 @@ export const ProfileCreation: React.FC<ProfileCreationProps> = ({ onComplete, on
           required
         />
         
-        <Input
-          label="Phone Number"
-          type="tel"
-          placeholder="+91 98765 43210"
-          value={profileData.phone}
-          onChange={(e) => updateProfileData('phone', e.target.value)}
-          error={errors.phone}
-          icon={<Phone className="w-4 h-4" />}
-          fullWidth
-          required
-        />
+        <div className="col-span-2">
+          <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+            Phone Number <span className="text-red-500">*</span>
+          </label>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <span
+                className={`inline-flex items-center px-3 py-2 border border-r-0 rounded-l-md select-none
+                  ${theme === 'light' ? 'bg-gray-100 border-gray-300 text-gray-700' : 'bg-gray-800 border-gray-600 text-gray-200'}`}
+              >
+                +91
+              </span>
+              <input
+                type="tel"
+                maxLength={10}
+                pattern="[0-9]{10}"
+                value={profileData.phone}
+                onChange={e => {
+                  // Only allow digits, max 10
+                  const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                  handlePhoneChange(val);
+                }}
+                className="w-full px-4 py-2 border border-gray-300 rounded-r-md focus:ring-2 focus:border-blue-500 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
+                placeholder="Enter 10 digit mobile number"
+                disabled={otpVerified}
+              />
+              {otpVerified && <CheckCircle className="w-6 h-6 text-green-500 ml-2" />}
+            </div>
+            {/* Show Verify button if 10 digit phone and not verified and not otpSent */}
+            {!otpVerified && profileData.phone.length === 10 && !otpSent && (
+              <button
+                type="button"
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 w-fit"
+                onClick={handleSendOtp}
+                disabled={otpLoading || profileData.phone.length !== 10}
+              >
+                {otpLoading ? 'Sending...' : 'Verify'}
+              </button>
+            )}
+            {/* OTP input and verify button, shown only after clicking Verify */}
+            {otpSent && !otpVerified && (
+              <div className="flex items-center gap-2 mt-1">
+                <input
+                  type="text"
+                  maxLength={6}
+                  value={otp}
+                  onChange={e => setOtp(e.target.value.replace(/\D/g, ''))}
+                  className="w-24 px-2 py-1 border rounded focus:ring-2 focus:border-blue-500 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
+                  placeholder="Enter OTP"
+                  disabled={otpLoading}
+                />
+                <button
+                  type="button"
+                  className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+                  onClick={handleVerifyOtp}
+                  disabled={otpLoading}
+                >
+                  {otpLoading ? 'Verifying...' : 'Verify OTP'}
+                </button>
+                {otpError && <span className="text-red-500 text-sm ml-2 flex items-center"><XCircle className="w-4 h-4 mr-1" />{otpError}</span>}
+              </div>
+            )}
+            {errors.phone && (
+              <p className="mt-1 text-sm text-red-600 dark:text-red-400 flex items-center">
+                <span className="mr-1">⚠</span>
+                {errors.phone}
+              </p>
+            )}
+          </div>
+        </div>
         
-        <Input
-          label="Location"
-          placeholder="Bangalore, India"
-          value={profileData.location}
-          onChange={(e) => updateProfileData('location', e.target.value)}
-          error={errors.location}
-          icon={<MapPin className="w-4 h-4" />}
-          fullWidth
-          required
-        />
-
+        <div>
+          <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+            Country <span className="text-red-500">*</span>
+          </label>
+          <select
+            className="w-full px-4 py-2.5 rounded-lg border focus:ring-2 focus:border-transparent"
+            value={country}
+            onChange={e => setCountry(e.target.value)}
+            disabled
+          >
+            <option value="IN">🇮🇳 India</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+            State <span className="text-red-500">*</span>
+          </label>
+          <select
+            className="w-full px-4 py-2.5 rounded-lg border focus:ring-2 focus:border-transparent"
+            value={state}
+            onChange={e => setState(e.target.value)}
+          >
+            <option value="">Select State</option>
+            {states.map(s => (
+              <option key={s.isoCode} value={s.isoCode}>{s.name}</option>
+            ))}
+          </select>
+        </div>
+        {state && (
+          <div>
+            <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+              City <span className="text-red-500">*</span>
+            </label>
+            <select
+              className="w-full px-4 py-2.5 rounded-lg border focus:ring-2 focus:border-transparent"
+              value={city}
+              onChange={e => setCity(e.target.value)}
+            >
+              <option value="">Select City</option>
+              {cities.map(c => (
+                <option key={c.name} value={c.name}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
         <Input
           label="Password"
           type="password"
@@ -474,15 +640,12 @@ export const ProfileCreation: React.FC<ProfileCreationProps> = ({ onComplete, on
           {profileData.skills && profileData.skills.length > 0 && (
             <div className="flex flex-wrap gap-2 mb-4">
               {profileData.skills.map((skill, index) => (
-                <Badge
-                  key={index}
-                  variant="primary"
-                  className="flex items-center space-x-1 cursor-pointer"
-                  onClick={() => handleSkillRemove(skill)}
-                >
-                  <span>{skill}</span>
-                  <span className="ml-1 hover:bg-white/20 rounded-full">×</span>
-                </Badge>
+                <span key={index} className="flex items-center space-x-1">
+                  <Badge variant="primary" className="flex items-center">
+                    <span>{skill}</span>
+                  </Badge>
+                  <button type="button" onClick={() => handleSkillRemove(skill)} className="ml-1 hover:bg-white/20 rounded-full text-red-500">×</button>
+                </span>
               ))}
             </div>
           )}

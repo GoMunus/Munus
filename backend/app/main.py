@@ -9,6 +9,14 @@ from app.core.config import settings
 from app.api import api_router
 from app.db.database import engine
 from app.models import user, job, resume, notification, company
+from app.api.v1.endpoints import (
+    auth, users, jobs, resumes, companies, notifications, upload, health, contact
+)
+from pydantic import BaseModel
+from twilio.rest import Client
+import os
+from dotenv import load_dotenv
+from fastapi.staticfiles import StaticFiles
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -38,7 +46,7 @@ app = FastAPI(
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173", "http://127.0.0.1:3000", "http://localhost:5174"],
+    allow_origins=["*"],  # Allow all origins for development
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -143,6 +151,63 @@ async def root():
 
 # Include API router
 app.include_router(api_router, prefix=settings.API_V1_STR)
+app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
+app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
+app.include_router(jobs.router, prefix="/api/v1/jobs", tags=["jobs"])
+app.include_router(resumes.router, prefix="/api/v1/resumes", tags=["resumes"])
+app.include_router(companies.router, prefix="/api/v1/companies", tags=["companies"])
+app.include_router(notifications.router, prefix="/api/v1/notifications", tags=["notifications"])
+app.include_router(upload.router, prefix="/api/v1/upload", tags=["upload"])
+app.include_router(health.router, prefix="/api/v1", tags=["health"])
+app.include_router(contact.router, prefix="/api/v1/contact", tags=["contact"])
+
+
+# Twilio setup
+account_sid = os.getenv("TWILIO_ACCOUNT_SID")
+auth_token = os.getenv("TWILIO_AUTH_TOKEN")
+verify_sid = os.getenv("TWILIO_VERIFY_SID")
+client = Client(account_sid, auth_token)
+
+# Input models
+class PhoneNumber(BaseModel):
+    phone: str
+
+class OTPCheck(BaseModel):
+    phone: str
+    code: str
+
+# Send OTP
+@app.post("/send-otp/")
+def send_otp(data: PhoneNumber):
+    try:
+        verification = client.verify.v2.services(verify_sid).verifications.create(
+            to=data.phone,
+            channel="sms"
+        )
+        return {"status": verification.status}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Verify OTP
+@app.post("/verify-otp/")
+def verify_otp(data: OTPCheck):
+    try:
+        verification_check = client.verify.v2.services(verify_sid).verification_checks.create(
+            to=data.phone,
+            code=data.code
+        )
+        if verification_check.status == "approved":
+            return {"verified": True}
+        else:
+            return {"verified": False}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Serve frontend static files
+frontend_dist = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../dist'))
+if os.path.exists(frontend_dist):
+    app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="static")
 
 
 if __name__ == "__main__":

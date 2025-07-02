@@ -1,5 +1,5 @@
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
 from app.db.database import get_db
@@ -8,6 +8,8 @@ from app.models.user import User
 from app.models.job import Job, JobApplication
 from app.schemas.job import JobCreate, JobUpdate, JobResponse, JobFilter, JobApplicationCreate, JobApplicationResponse
 from app.crud.job import create_job, get_job, get_jobs, update_job, delete_job, create_job_application
+from app.services import matching
+from app.models.resume import Resume
 
 router = APIRouter()
 
@@ -277,3 +279,84 @@ def get_job_applications(
     ).order_by(JobApplication.created_at.desc()).all()
     
     return applications
+
+
+@router.post("/match-score")
+def get_match_score(
+    resume_text: str = Body(..., embed=True),
+    job_text: str = Body(..., embed=True),
+    use_openai: bool = Query(False, description="Use OpenAI for matching if true")
+):
+    """Return the AI-powered match score between a resume and a job description."""
+    if use_openai:
+        score = matching.openai_match_score(resume_text, job_text)
+    else:
+        score = matching.match_score(resume_text, job_text)
+    return {"score": score}
+
+
+@router.get("/recommend")
+def recommend_jobs(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    use_openai: bool = Query(False, description="Use OpenAI for matching if true")
+):
+    """Recommend jobs to the current user based on their best resume and AI match score."""
+    # Get user's best (default) resume
+    resume = db.query(Resume).filter(
+        Resume.user_id == current_user.id,
+        Resume.is_default == True
+    ).first()
+    if not resume:
+        return []
+    resume_text = f"{resume.title}\n{resume.summary or ''}"
+    # Get all active jobs
+    jobs = db.query(Job).filter(Job.is_active == True).all()
+    job_texts = [f"{job.title}\n{job.description}" for job in jobs]
+    # Compute match scores
+    if use_openai:
+        scores = [matching.openai_match_score(resume_text, jt) for jt in job_texts]
+    else:
+        scores = [matching.match_score(resume_text, jt) for jt in job_texts]
+    job_scores = list(zip(jobs, scores))
+    job_scores.sort(key=lambda x: x[1], reverse=True)
+    return [{"job": j.id, "score": float(score)} for j, score in job_scores]
+
+
+@router.get("/{job_id}/recommend-candidates")
+def recommend_candidates(
+    job_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_employer),
+    use_openai: bool = Query(False, description="Use OpenAI for matching if true")
+):
+    """Recommend candidates for a job based on AI match score."""
+    # Get the job
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    job_text = f"{job.title}\n{job.description}"
+    # Get all resumes
+    resumes = db.query(Resume).filter(Resume.is_public == True).all()
+    resume_texts = [f"{r.title}\n{r.summary or ''}" for r in resumes]
+    if not resume_texts:
+        return []
+    if use_openai:
+        scores = [matching.openai_match_score(rt, job_text) for rt in resume_texts]
+    else:
+        scores = [matching.match_score(rt, job_text) for rt in resume_texts]
+    candidate_scores = list(zip(resumes, scores))
+    candidate_scores.sort(key=lambda x: x[1], reverse=True)
+    return [{"resume": r.id, "user": r.user_id, "score": float(score)} for r, score in candidate_scores]
+
+
+@router.post("/feedback")
+def submit_match_feedback(
+    resume_id: int = Body(...),
+    job_id: int = Body(...),
+    score: float = Body(...),
+    feedback: int = Body(...),  # 1=good, 0=bad
+):
+    """Accept feedback on a match to improve the AI system (simulated)."""
+    matching.add_feedback(resume_id, job_id, score, feedback)
+    return {"status": "feedback received"}

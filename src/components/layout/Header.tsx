@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Menu, X, User, Settings, LogOut, Sun, Moon, Zap, Bell, Home, ChevronDown } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { Menu, X, User, Settings, LogOut, Sun, Moon, Zap, Bell, Home, ChevronDown, HelpCircle, Mail } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Button } from '../ui/Button';
@@ -9,7 +9,7 @@ import { notificationService } from '../../services/notificationService';
 import { useApi } from '../../hooks/useApi';
 
 interface HeaderProps {
-  onNavigate?: (view: 'home' | 'jobs' | 'resume' | 'profile' | 'dashboard' | 'post-job' | 'candidates') => void;
+  onNavigate?: (view: 'home' | 'jobs' | 'resume' | 'profile' | 'create-profile' | 'dashboard' | 'post-job' | 'candidates' | 'faqs' | 'contact') => void;
   currentView?: string;
   onGetStarted?: () => void;
   onSignIn?: () => void;
@@ -30,9 +30,12 @@ export const Header: React.FC<HeaderProps> = ({
   
   const profileRef = useRef<HTMLDivElement>(null);
 
+  // Memoize the API function to avoid unnecessary re-renders
+  const getUnreadCount = useCallback(() => notificationService.getUnreadCount(), []);
+
   // Fetch unread notification count
   const { data: unreadData } = useApi(
-    () => notificationService.getUnreadCount(),
+    getUnreadCount,
     {
       immediate: isAuthenticated,
       onSuccess: (data) => setUnreadCount(data.count),
@@ -65,6 +68,8 @@ export const Header: React.FC<HeaderProps> = ({
         { name: 'Home', href: '#home', view: 'home' as const, icon: Home },
         { name: 'Find Jobs', href: '#jobs', view: 'jobs' as const, icon: User },
         { name: 'Resume Builder', href: '#resume', view: 'resume' as const, icon: User },
+        { name: 'FAQs', href: '#faqs', view: 'faqs' as const, icon: HelpCircle },
+        { name: 'Contact Us', href: '#contact', view: 'contact' as const, icon: Mail },
       ];
     }
 
@@ -73,36 +78,40 @@ export const Header: React.FC<HeaderProps> = ({
         { name: 'Dashboard', href: '#dashboard', view: 'dashboard' as const, icon: Home },
         { name: 'Post Job', href: '#post-job', view: 'post-job' as const, icon: User },
         { name: 'Find Candidates', href: '#candidates', view: 'candidates' as const, icon: User },
+        { name: 'FAQs', href: '#faqs', view: 'faqs' as const, icon: HelpCircle },
+        { name: 'Contact Us', href: '#contact', view: 'contact' as const, icon: Mail },
       ];
     } else if (isJobSeeker) {
       return [
         { name: 'Find Jobs', href: '#jobs', view: 'jobs' as const, icon: User },
         { name: 'Resume Builder', href: '#resume', view: 'resume' as const, icon: User },
         { name: 'My Profile', href: '#profile', view: 'profile' as const, icon: User },
+        { name: 'FAQs', href: '#faqs', view: 'faqs' as const, icon: HelpCircle },
+        { name: 'Contact Us', href: '#contact', view: 'contact' as const, icon: Mail },
       ];
     }
 
     return [];
   };
 
-  const navigation = getNavigation();
+  // Memoize navigation to avoid recalculating on every render
+  const navigation = useMemo(() => getNavigation(), [isAuthenticated, isEmployer, isJobSeeker, currentView, theme]);
 
-  const handleNavigation = (view: 'home' | 'jobs' | 'resume' | 'profile' | 'dashboard' | 'post-job' | 'candidates') => {
-    // If user is not authenticated and tries to access protected routes
-    if (!isAuthenticated && ['post-job', 'profile', 'dashboard', 'candidates'].includes(view)) {
+  // Memoize handlers
+  const handleNavigation = useCallback((view: 'home' | 'jobs' | 'resume' | 'profile' | 'create-profile' | 'dashboard' | 'post-job' | 'candidates' | 'faqs' | 'contact') => {
+    if (!isAuthenticated && ['post-job', 'profile', 'dashboard', 'candidates', 'faqs', 'contact'].includes(view)) {
       onSignIn?.();
       return;
     }
-    
     onNavigate?.(view);
     setIsMenuOpen(false);
     setIsProfileOpen(false);
-  };
+  }, [isAuthenticated, onSignIn, onNavigate]);
 
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     setIsProfileOpen(false);
     logout();
-  };
+  }, [logout]);
 
   return (
     <>

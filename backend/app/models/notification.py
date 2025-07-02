@@ -29,7 +29,7 @@ class Notification(Base):
     
     # Additional Data
     action_url = Column(String(500))
-    metadata = Column(String(1000))  # JSON string for additional data
+    notification_data = Column(String(1000))  # JSON string for additional data
     
     # Foreign Keys
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)

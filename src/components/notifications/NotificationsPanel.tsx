@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Bell, X, Check, CheckCheck, Trash2, Settings, Briefcase, Users, Star, MessageCircle, Calendar, TrendingUp, Filter, Search, MoreVertical } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
@@ -31,16 +31,21 @@ export const NotificationsPanel: React.FC<NotificationsPanelProps> = ({ isOpen, 
     }
   );
 
+  // Memoize refetch to avoid unnecessary interval resets
+  const stableRefetch = useCallback(() => {
+    refetch();
+  }, [refetch]);
+
   // Refresh unread count when notifications are updated
   useEffect(() => {
     if (!isOpen) return;
     
     const refreshInterval = setInterval(() => {
-      refetch();
+      stableRefetch();
     }, 30000); // Refresh every 30 seconds
     
     return () => clearInterval(refreshInterval);
-  }, [isOpen, refetch]);
+  }, [isOpen, stableRefetch]);
 
   const getNotificationIcon = (type: string) => {
     switch (type) {

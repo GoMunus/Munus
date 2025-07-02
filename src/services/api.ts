@@ -141,6 +141,29 @@ export const api = {
       throw error;
     });
   },
+  // OTP methods
+  sendOtp: (phone: string) => apiClient.post('/users/send-otp', { phone }),
+  verifyOtp: (phone: string, otp: string) => apiClient.post('/users/verify-otp', { phone, otp }),
 };
 
 export default apiClient;
+
+export async function sendOtp(phone: string) {
+  const res = await fetch('http://localhost:8000/send-otp/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone })
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function verifyOtp(phone: string, code: string) {
+  const res = await fetch('http://localhost:8000/verify-otp/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone, code })
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}

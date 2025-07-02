@@ -1,11 +1,12 @@
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.api.deps import get_current_user
 from app.models.user import User
 from app.models.resume import Resume
 from app.schemas.resume import ResumeCreate, ResumeUpdate, ResumeResponse
+import os
 
 router = APIRouter()
 
@@ -145,3 +146,68 @@ def set_default_resume(
     db.commit()
     
     return {"message": "Resume set as default"}
+
+
+@router.post("/{resume_id}/generate-pdf")
+def generate_resume_pdf(
+    resume_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Generate a PDF for the resume (mock implementation)"""
+    resume = db.query(Resume).filter(
+        Resume.id == resume_id,
+        Resume.user_id == current_user.id
+    ).first()
+    if not resume:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Resume not found"
+        )
+    # Mock PDF URL
+    pdf_url = f"/uploads/resumes/{resume_id}_resume.pdf"
+    return {"pdf_url": pdf_url}
+
+
+@router.post("/{resume_id}/upload-video")
+def upload_resume_video(
+    resume_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Upload a video for the resume (mock implementation)"""
+    resume = db.query(Resume).filter(
+        Resume.id == resume_id,
+        Resume.user_id == current_user.id
+    ).first()
+    if not resume:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Resume not found"
+        )
+    # Save file (mock)
+    video_url = f"/uploads/videos/{resume_id}_video.mp4"
+    return {"video_url": video_url}
+
+
+@router.post("/{resume_id}/upload-audio")
+def upload_resume_audio(
+    resume_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Upload an audio for the resume (mock implementation)"""
+    resume = db.query(Resume).filter(
+        Resume.id == resume_id,
+        Resume.user_id == current_user.id
+    ).first()
+    if not resume:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Resume not found"
+        )
+    # Save file (mock)
+    voice_url = f"/uploads/audio/{resume_id}_audio.mp3"
+    return {"voice_url": voice_url}

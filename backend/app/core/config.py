@@ -1,6 +1,8 @@
 from typing import List, Optional
 from pydantic import AnyHttpUrl, validator
 from pydantic_settings import BaseSettings
+import os
+from fastapi.middleware.cors import CORSMiddleware
 
 
 class Settings(BaseSettings):
@@ -51,6 +53,16 @@ class Settings(BaseSettings):
     # Environment
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
+    
+    # OpenAI API Key
+    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
+    
+    # Twilio Configuration for OTP
+    TWILIO_ACCOUNT_SID: str = os.getenv("TWILIO_ACCOUNT_SID", "")
+    TWILIO_AUTH_TOKEN: str = os.getenv("TWILIO_AUTH_TOKEN", "")
+    TWILIO_VERIFY_SID: str = os.getenv("TWILIO_VERIFY_SID", "")
+    TWILIO_PHONE_NUMBER: str = os.getenv("TWILIO_PHONE_NUMBER", "")
+    OTP_EXPIRY_MINUTES: int = int(os.getenv("OTP_EXPIRY_MINUTES", "5"))
     
     class Config:
         env_file = ".env"
