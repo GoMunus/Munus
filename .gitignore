@@ -24,3 +24,5 @@ dist-ssr
 *.sw?
 .env
 venv/
+my_project_backup.zip
+backend/venv/
