@@ -102,6 +102,30 @@ export const ProfileCreation: React.FC<ProfileCreationProps> = ({ onComplete, on
 
   const steps = profileData.userType === 'jobseeker' ? jobSeekerSteps : employerSteps;
 
+  // Reset component state when mounted
+  useEffect(() => {
+    setCurrentStep(0);
+    setProfileData({
+      userType: 'jobseeker',
+      firstName: '',
+      lastName: '',
+      email: '',
+      phone: '',
+      location: '',
+      skills: [],
+      jobType: [],
+      workMode: [],
+      password: '',
+    });
+    setErrors({});
+    setIsSubmitting(false);
+    setOtpSent(false);
+    setOtpVerified(false);
+    setOtp('');
+    setOtpError('');
+    setOtpLoading(false);
+  }, []);
+
   const updateProfileData = (field: keyof ProfileData, value: any) => {
     setProfileData(prev => ({ ...prev, [field]: value }));
     // Clear error when user starts typing
@@ -125,7 +149,6 @@ export const ProfileCreation: React.FC<ProfileCreationProps> = ({ onComplete, on
           if (!profileData.lastName.trim()) newErrors.lastName = 'Last name is required';
           if (!profileData.email.trim()) newErrors.email = 'Email is required';
           else if (!/\S+@\S+\.\S+/.test(profileData.email)) newErrors.email = 'Please enter a valid email';
-          if (!profileData.phone.trim()) newErrors.phone = 'Phone number is required';
           if (!profileData.location.trim()) newErrors.location = 'Location is required';
           if (!profileData.password.trim()) newErrors.password = 'Password is required';
           else if (profileData.password.length < 6) newErrors.password = 'Password must be at least 6 characters';
@@ -135,7 +158,6 @@ export const ProfileCreation: React.FC<ProfileCreationProps> = ({ onComplete, on
           if (profileData.userType === 'jobseeker') {
             if (!profileData.currentRole?.trim()) newErrors.currentRole = 'Current role is required';
             if (!profileData.experience) newErrors.experience = 'Experience level is required';
-            if (!profileData.industry?.trim()) newErrors.industry = 'Industry is required';
             if (!profileData.skills || profileData.skills.length === 0) newErrors.skills = 'At least one skill is required';
           }
           break;
@@ -143,7 +165,6 @@ export const ProfileCreation: React.FC<ProfileCreationProps> = ({ onComplete, on
         case 'company':
           if (profileData.userType === 'employer') {
             if (!profileData.companyName?.trim()) newErrors.companyName = 'Company name is required';
-            if (!profileData.companyIndustry?.trim()) newErrors.companyIndustry = 'Company industry is required';
             if (!profileData.companySize) newErrors.companySize = 'Company size is required';
             if (!profileData.companyDescription?.trim()) newErrors.companyDescription = 'Company description is required';
           }
@@ -162,6 +183,15 @@ export const ProfileCreation: React.FC<ProfileCreationProps> = ({ onComplete, on
             if (!profileData.workMode || profileData.workMode.length === 0) newErrors.workMode = 'Select at least one work mode';
           }
           break;
+          
+        case 'complete':
+          // On the complete step, we don't need to validate anything
+          // Just ensure we have the basic required fields
+          if (!profileData.firstName.trim()) newErrors.firstName = 'First name is required';
+          if (!profileData.lastName.trim()) newErrors.lastName = 'Last name is required';
+          if (!profileData.email.trim()) newErrors.email = 'Email is required';
+          if (!profileData.password.trim()) newErrors.password = 'Password is required';
+          break;
       }
 
       setErrors(newErrors);
@@ -174,7 +204,8 @@ export const ProfileCreation: React.FC<ProfileCreationProps> = ({ onComplete, on
   };
 
   const nextStep = () => {
-    if (validateStep(currentStep)) {
+    const valid = validateStep(currentStep);
+    if (valid) {
       setCurrentStep(prev => Math.min(prev + 1, steps.length - 1));
     }
   };
@@ -204,11 +235,10 @@ export const ProfileCreation: React.FC<ProfileCreationProps> = ({ onComplete, on
   };
 
   const handleSubmit = async () => {
-    if (!validateStep(currentStep)) return;
-
     setIsSubmitting(true);
     try {
-      await register({
+      // Log the payload for debugging
+      const payload = {
         name: `${profileData.firstName} ${profileData.lastName}`,
         email: profileData.email,
         password: profileData.password,
@@ -216,11 +246,33 @@ export const ProfileCreation: React.FC<ProfileCreationProps> = ({ onComplete, on
         phone: profileData.phone,
         location: profileData.location,
         ...(profileData.userType === 'employer' && { company: profileData.companyName }),
-      });
+      };
+      console.log('Registration payload:', payload);
+      console.log('About to call register function...');
+
+      const result = await register(payload);
+      console.log('Registration successful:', result);
+      
+      // Wait a moment to ensure state is updated
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      console.log('Calling onComplete...');
       onComplete();
-    } catch (error) {
-      console.error('Registration error:', error);
-      setErrors({ general: 'Failed to create profile. Please try again.' });
+    } catch (error: any) {
+      console.error('Registration error details:', error);
+      console.error('Error message:', error.message);
+      console.error('Error response:', error.response);
+      console.error('Error status:', error.response?.status);
+      console.error('Error data:', error.response?.data);
+      
+      // Handle specific error cases
+      if (error.message.includes('Email already registered')) {
+        setErrors({ email: 'This email is already registered. Please use a different email address.' });
+        // Clear the email field to make it easy to try again
+        setProfileData(prev => ({ ...prev, email: '' }));
+      } else {
+        setErrors({ general: `Failed to create profile: ${error.message}` });
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -284,6 +336,18 @@ export const ProfileCreation: React.FC<ProfileCreationProps> = ({ onComplete, on
       setCity('');
     }
   }, [state, country]);
+
+  // Update location in profileData when state or city changes for both jobseeker and employer
+  useEffect(() => {
+    if ((profileData.userType === 'employer' || profileData.userType === 'jobseeker')) {
+      if (state && city) {
+        updateProfileData('location', `${city}, ${state}`);
+      } else {
+        updateProfileData('location', '');
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state, city, profileData.userType]);
 
   const renderRoleSelection = () => (
     <div className="space-y-6">
@@ -433,7 +497,7 @@ export const ProfileCreation: React.FC<ProfileCreationProps> = ({ onComplete, on
         
         <div className="col-span-2">
           <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
-            Phone Number <span className="text-red-500">*</span>
+            Phone Number
           </label>
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-2">
@@ -453,7 +517,7 @@ export const ProfileCreation: React.FC<ProfileCreationProps> = ({ onComplete, on
                   const val = e.target.value.replace(/\D/g, '').slice(0, 10);
                   handlePhoneChange(val);
                 }}
-                className="w-full px-4 py-2 border border-gray-300 rounded-r-md focus:ring-2 focus:border-blue-500 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
+                className={`w-full px-4 py-2 border rounded-r-md focus:ring-2 focus:border-blue-500 ${theme === 'light' ? 'bg-white border-gray-300 text-gray-900' : 'dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100'}`}
                 placeholder="Enter 10 digit mobile number"
                 disabled={otpVerified}
               />
@@ -616,79 +680,9 @@ export const ProfileCreation: React.FC<ProfileCreationProps> = ({ onComplete, on
             </select>
             {errors.experience && <p className="mt-1 text-sm text-red-600">{errors.experience}</p>}
           </div>
-          
-          <Input
-            label="Industry"
-            placeholder="Technology"
-            value={profileData.industry || ''}
-            onChange={(e) => updateProfileData('industry', e.target.value)}
-            error={errors.industry}
-            icon={<GraduationCap className="w-4 h-4" />}
-            fullWidth
-            required
-          />
-        </div>
-
-        <div>
-          <label className={`block text-sm font-medium mb-3 ${
-            theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-          }`}>
-            Skills & Technologies <span className="text-red-500">*</span>
-          </label>
-          
-          {/* Selected Skills */}
-          {profileData.skills && profileData.skills.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-4">
-              {profileData.skills.map((skill, index) => (
-                <span key={index} className="flex items-center space-x-1">
-                  <Badge variant="primary" className="flex items-center">
-                    <span>{skill}</span>
-                  </Badge>
-                  <button type="button" onClick={() => handleSkillRemove(skill)} className="ml-1 hover:bg-white/20 rounded-full text-red-500">×</button>
-                </span>
-              ))}
-            </div>
-          )}
-          
-          {/* Skill Suggestions */}
-          <div className="mb-4">
-            <p className={`text-sm mb-2 ${
-              theme === 'light' ? 'text-gray-600' : 'text-gray-400'
-            }`}>
-              Popular skills (click to add):
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {skillSuggestions
-                .filter(skill => !profileData.skills?.includes(skill))
-                .slice(0, 12)
-                .map((skill, index) => (
-                  <button
-                    key={index}
-                    onClick={() => handleSkillAdd(skill)}
-                    className={`px-3 py-1 text-sm border rounded-full transition-colors ${
-                      theme === 'light'
-                        ? 'border-gray-300 hover:bg-gray-100'
-                        : 'border-gray-600 hover:bg-gray-800'
-                    }`}
-                  >
-                    {skill}
-                  </button>
-                ))}
-            </div>
-          </div>
-          
-          {errors.skills && <p className="text-sm text-red-600">{errors.skills}</p>}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Input
-            label="LinkedIn Profile (Optional)"
-            placeholder="https://linkedin.com/in/johndoe"
-            value={profileData.linkedIn || ''}
-            onChange={(e) => updateProfileData('linkedIn', e.target.value)}
-            fullWidth
-          />
-          
           <Input
             label="Portfolio Website (Optional)"
             placeholder="https://johndoe.dev"
@@ -749,25 +743,6 @@ export const ProfileCreation: React.FC<ProfileCreationProps> = ({ onComplete, on
           </select>
           {errors.companySize && <p className="mt-1 text-sm text-red-600">{errors.companySize}</p>}
         </div>
-        
-        <Input
-          label="Industry"
-          placeholder="Technology"
-          value={profileData.companyIndustry || ''}
-          onChange={(e) => updateProfileData('companyIndustry', e.target.value)}
-          error={errors.companyIndustry}
-          icon={<Award className="w-4 h-4" />}
-          fullWidth
-          required
-        />
-        
-        <Input
-          label="Company LinkedIn (Optional)"
-          placeholder="https://linkedin.com/company/techcorp"
-          value={profileData.companyLinkedIn || ''}
-          onChange={(e) => updateProfileData('companyLinkedIn', e.target.value)}
-          fullWidth
-        />
       </div>
 
       <div>
@@ -1167,6 +1142,18 @@ export const ProfileCreation: React.FC<ProfileCreationProps> = ({ onComplete, on
             </p>
           </div>
         </div>
+
+        {/* General Error Display */}
+        {errors.general && (
+          <div className="max-w-3xl mx-auto mb-4">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 dark:bg-red-900/20 dark:border-red-800">
+              <div className="flex items-center">
+                <XCircle className="w-5 h-5 text-red-500 mr-2" />
+                <p className="text-red-700 dark:text-red-400 font-medium">{errors.general}</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Main Content */}
         <Card className="max-w-3xl mx-auto">

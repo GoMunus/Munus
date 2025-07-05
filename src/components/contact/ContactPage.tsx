@@ -28,27 +28,64 @@ export const ContactPage: React.FC = () => {
   };
 
   return (
-    <div className="max-w-xl mx-auto py-16 px-4">
-      <h1 className="text-4xl font-bold mb-8 text-center bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Contact Us</h1>
-      <form onSubmit={handleSubmit} className="space-y-6 bg-white dark:bg-gray-900 p-8 rounded-xl shadow-md border border-gray-200 dark:border-gray-700">
-        <div>
-          <label className="block text-gray-700 dark:text-gray-300 mb-2">Name</label>
-          <input type="text" name="name" value={form.name} onChange={handleChange} required className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-        </div>
-        <div>
-          <label className="block text-gray-700 dark:text-gray-300 mb-2">Email</label>
-          <input type="email" name="email" value={form.email} onChange={handleChange} required className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-        </div>
-        <div>
-          <label className="block text-gray-700 dark:text-gray-300 mb-2">Message</label>
-          <textarea name="message" value={form.message} onChange={handleChange} required rows={5} className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-        </div>
-        <button type="submit" disabled={loading} className="w-full py-3 rounded-lg bg-blue-600 text-white font-bold hover:bg-blue-700 transition disabled:opacity-50">
-          {loading ? 'Sending...' : 'Send Message'}
-        </button>
-        {success && <div className="text-green-600 text-center font-medium mt-2">{success}</div>}
-        {error && <div className="text-red-600 text-center font-medium mt-2">{error}</div>}
-      </form>
+    <div className="light min-h-screen bg-white dark:bg-gray-900">
+      <div className="max-w-xl mx-auto py-16 px-4">
+        <h1 className="text-4xl font-bold mb-8 text-center bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent dark:from-blue-400 dark:to-purple-400">
+          Contact Us
+        </h1>
+        <form onSubmit={handleSubmit} className="space-y-6 bg-white dark:bg-gray-800 p-8 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700">
+          <div>
+            <label className="block text-gray-700 dark:text-gray-300 mb-2 font-medium">Name</label>
+            <input 
+              type="text" 
+              name="name" 
+              value={form.name} 
+              onChange={handleChange} 
+              required 
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors" 
+            />
+          </div>
+          <div>
+            <label className="block text-gray-700 dark:text-gray-300 mb-2 font-medium">Email</label>
+            <input 
+              type="email" 
+              name="email" 
+              value={form.email} 
+              onChange={handleChange} 
+              required 
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors" 
+            />
+          </div>
+          <div>
+            <label className="block text-gray-700 dark:text-gray-300 mb-2 font-medium">Message</label>
+            <textarea 
+              name="message" 
+              value={form.message} 
+              onChange={handleChange} 
+              required 
+              rows={5} 
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors resize-none" 
+            />
+          </div>
+          <button 
+            type="submit" 
+            disabled={loading} 
+            className="w-full py-3 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-bold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+          >
+            {loading ? 'Sending...' : 'Send Message'}
+          </button>
+          {success && (
+            <div className="text-green-600 dark:text-green-400 text-center font-medium mt-2 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+              {success}
+            </div>
+          )}
+          {error && (
+            <div className="text-red-600 dark:text-red-400 text-center font-medium mt-2 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+              {error}
+            </div>
+          )}
+        </form>
+      </div>
     </div>
   );
 }; 

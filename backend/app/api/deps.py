@@ -79,7 +79,7 @@ def get_current_jobseeker(
 
 def get_optional_current_user(
     db: Session = Depends(get_db),
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False))
 ) -> Optional[User]:
     """Get current user if authenticated, otherwise return None"""
     if credentials is None:

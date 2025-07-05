@@ -43,7 +43,10 @@ class AuthService {
 
   async register(userData: RegisterRequest): Promise<AuthResponse> {
     try {
-      const response = await api.post<AuthResponse>('/auth/register', userData);
+      console.log('AuthService: Making registration request to /auth/register');
+      console.log('AuthService: Request data:', userData);
+      const response = await api.post<AuthResponse>('/auth/register/', userData);
+      console.log('AuthService: Registration response received:', response.data);
       const { access_token, refresh_token, user } = response.data;
       
       localStorage.setItem('skillglide-access-token', access_token);
@@ -52,6 +55,8 @@ class AuthService {
       
       return response.data;
     } catch (error: any) {
+      console.error('AuthService: Registration error:', error);
+      console.error('AuthService: Error response:', error.response);
       const errorMessage = error.response?.data?.detail || 'Registration failed. Please try again.';
       throw new Error(errorMessage);
     }

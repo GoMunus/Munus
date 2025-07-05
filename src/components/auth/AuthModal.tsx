@@ -115,8 +115,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       onClose();
     } catch (error: any) {
       console.error('Authentication error:', error);
+      // Always show a user-friendly message for login failures
       setErrors({ 
-        general: error.message || 'Authentication failed. Please check your credentials and try again.' 
+        general: mode === 'login' 
+          ? 'Invalid email address or password' 
+          : (error.message || 'Authentication failed. Please check your credentials and try again.')
       });
     } finally {
       setIsSubmitting(false);

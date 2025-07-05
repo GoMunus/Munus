@@ -44,6 +44,7 @@ export const Button: React.FC<ButtonProps> = ({
       bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800
       text-white shadow-lg hover:shadow-xl focus:ring-blue-500
       ${theme === 'dark-neon' ? 'from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 shadow-cyan-500/25 hover:shadow-cyan-500/40' : ''}
+      ${theme === 'light' ? 'text-white' : ''}
     `,
     secondary: `
       bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700
@@ -54,6 +55,7 @@ export const Button: React.FC<ButtonProps> = ({
       border-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white
       focus:ring-blue-500 shadow-sm hover:shadow-md
       ${theme === 'dark-neon' ? 'border-cyan-400 text-cyan-400 hover:bg-cyan-400 hover:text-black shadow-cyan-400/20' : ''}
+      ${theme === 'light' ? 'text-white' : ''}
     `,
     ghost: `
       text-gray-700 hover:bg-gray-100 focus:ring-gray-500
@@ -90,10 +92,22 @@ export const Button: React.FC<ButtonProps> = ({
       )}
       
       {/* Content */}
-      <div className={`flex items-center gap-2 ${loading ? 'opacity-0' : 'opacity-100'}`}>
-        {!loading && icon && iconPosition === 'left' && icon}
+      <div
+        className={`flex items-center gap-2 ${loading ? 'opacity-0' : 'opacity-100'}
+          ${variant === 'primary' && theme === 'light' ? '!text-white' : ''}
+        `}
+      >
+        {!loading && icon && iconPosition === 'left' && (
+          <span className={variant === 'primary' && theme === 'light' ? '!text-white [&>svg]:text-white [&>svg]:stroke-white' : ''}>
+            {icon}
+          </span>
+        )}
         {!loading && children}
-        {!loading && icon && iconPosition === 'right' && icon}
+        {!loading && icon && iconPosition === 'right' && (
+          <span className={variant === 'primary' && theme === 'light' ? '!text-white [&>svg]:text-white [&>svg]:stroke-white' : ''}>
+            {icon}
+          </span>
+        )}
       </div>
     </button>
   );

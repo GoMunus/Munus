@@ -67,6 +67,16 @@ class JobService {
       return [];
     }
   }
+
+  async getSuggestions(query: string, topK: number = 5): Promise<{ skills: string[]; jobs: string[]; candidates: string[] }> {
+    try {
+      const response = await api.get('/jobs/suggestions', { query, top_k: topK });
+      return response.data;
+    } catch (error: any) {
+      console.error('Error fetching suggestions:', error);
+      return { skills: [], jobs: [], candidates: [] };
+    }
+  }
 }
 
 export const jobService = new JobService();

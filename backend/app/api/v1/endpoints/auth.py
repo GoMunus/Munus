@@ -20,7 +20,7 @@ from app.services.email import send_password_reset_email
 router = APIRouter()
 
 
-@router.post("/register", response_model=Token)
+@router.post("/register/", response_model=Token)
 def register(
     user_data: UserCreate,
     db: Session = Depends(get_db)
@@ -50,7 +50,9 @@ def register(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Registration error: {e}")
+        import traceback
+        print("Registration error:", e)
+        traceback.print_exc()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Registration failed"

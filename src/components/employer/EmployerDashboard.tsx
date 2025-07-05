@@ -208,15 +208,6 @@ export const EmployerDashboard: React.FC<EmployerDashboardProps> = ({ onNavigate
               <Button
                 variant="outline"
                 fullWidth
-                onClick={() => onNavigate('post-job')}
-                icon={<Plus className="w-4 h-4" />}
-                className="justify-start"
-              >
-                Post New Job
-              </Button>
-              <Button
-                variant="outline"
-                fullWidth
                 icon={<Users className="w-4 h-4" />}
                 className="justify-start"
               >

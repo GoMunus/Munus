@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { jobService, type JobResponse } from '../services/jobService';
 import { useApi } from '../hooks/useApi';
+import { useAuth } from './AuthContext';
 import type { JobFilters } from '../types';
 
 interface JobContextValue {
@@ -33,6 +34,7 @@ interface JobProviderProps {
 export const JobProvider: React.FC<JobProviderProps> = ({ children }) => {
   const [filters, setFilters] = useState<JobFilters>({});
   const [filteredJobs, setFilteredJobs] = useState<JobResponse[]>([]);
+  const { isAuthenticated } = useAuth();
 
   const {
     data: jobs = [],
@@ -40,7 +42,7 @@ export const JobProvider: React.FC<JobProviderProps> = ({ children }) => {
     error,
     refetch: refetchJobs,
   } = useApi(() => jobService.getJobs(filters), {
-    immediate: true,
+    immediate: isAuthenticated, // Only fetch jobs if user is authenticated
     onError: (error) => {
       console.error('Failed to fetch jobs:', error);
     },
@@ -156,6 +158,17 @@ export const JobProvider: React.FC<JobProviderProps> = ({ children }) => {
     updateFilters({ search: query });
   }, [updateFilters]);
 
+  const refetchJobsAsync = useCallback(async () => {
+    await refetchJobs();
+  }, [refetchJobs]);
+
+  // Refetch jobs when authentication state changes
+  useEffect(() => {
+    if (isAuthenticated) {
+      refetchJobs();
+    }
+  }, [isAuthenticated, refetchJobs]);
+
   return (
     <JobContext.Provider
       value={{
@@ -168,7 +181,7 @@ export const JobProvider: React.FC<JobProviderProps> = ({ children }) => {
         loading,
         error,
         totalJobs: Array.isArray(jobs) ? jobs.length : 0,
-        refetchJobs,
+        refetchJobs: refetchJobsAsync,
       }}
     >
       {children}

@@ -3,6 +3,8 @@ from sqlalchemy.orm import Session
 from app.core.security import get_password_hash
 from app.models.user import User
 from app.schemas.user import UserCreate, UserUpdate
+from app.models.company import Company
+from app.schemas.company import CompanyCreate
 
 
 def get_user_by_id(db: Session, user_id: int) -> Optional[User]:
@@ -18,7 +20,18 @@ def get_user_by_email(db: Session, email: str) -> Optional[User]:
 def create_user(db: Session, user_data: UserCreate) -> User:
     """Create a new user"""
     hashed_password = get_password_hash(user_data.password)
-    
+    company_id = None
+    if user_data.role == "employer" and getattr(user_data, "company", None):
+        # Try to find existing company by name
+        company = db.query(Company).filter(Company.name == user_data.company).first()
+        if not company:
+            # Create new company with minimal info
+            company_in = CompanyCreate(name=user_data.company)
+            company = Company(**company_in.dict())
+            db.add(company)
+            db.commit()
+            db.refresh(company)
+        company_id = company.id
     db_user = User(
         email=user_data.email,
         hashed_password=hashed_password,
@@ -26,8 +39,8 @@ def create_user(db: Session, user_data: UserCreate) -> User:
         role=user_data.role,
         phone=user_data.phone,
         location=user_data.location,
+        company_id=company_id,
     )
-    
     db.add(db_user)
     db.commit()
     db.refresh(db_user)

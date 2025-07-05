@@ -68,11 +68,14 @@ const AppContent: React.FC = () => {
   };
 
   const handleProfileCreationComplete = () => {
-    if (isEmployer) {
-      setCurrentView('dashboard');
-    } else {
-      setCurrentView('jobs');
-    }
+    // Add a small delay to ensure authentication state is updated
+    setTimeout(() => {
+      if (isEmployer) {
+        setCurrentView('dashboard');
+      } else {
+        setCurrentView('jobs');
+      }
+    }, 100);
   };
 
   const handleProfileCreationBack = () => {

@@ -9,7 +9,8 @@ from app.models.job import Job, JobApplication
 from app.schemas.job import JobCreate, JobUpdate, JobResponse, JobFilter, JobApplicationCreate, JobApplicationResponse
 from app.crud.job import create_job, get_job, get_jobs, update_job, delete_job, create_job_application
 from app.services import matching
-from app.models.resume import Resume
+from app.models.resume import Resume, Skill
+from app.services.advanced_ml_service import advanced_ml_service
 
 router = APIRouter()
 
@@ -360,3 +361,38 @@ def submit_match_feedback(
     """Accept feedback on a match to improve the AI system (simulated)."""
     matching.add_feedback(resume_id, job_id, score, feedback)
     return {"status": "feedback received"}
+
+
+@router.get("/suggestions")
+def get_live_suggestions(
+    query: str = Query(..., description="Partial search input for suggestions"),
+    db: Session = Depends(get_db),
+    top_k: int = Query(5, description="Number of suggestions per type")
+):
+    """Get live search suggestions for skills, job titles, and candidate names."""
+    # Get all jobs (limit for performance)
+    jobs = db.query(Job).filter(Job.is_active == True).limit(100).all()
+    job_dicts = [
+        {"id": job.id, "title": job.title, "description": job.description, "company": getattr(job.company, 'name', None)}
+        for job in jobs
+    ]
+
+    # Get all public resumes and users (limit for performance)
+    resumes = db.query(Resume).filter(Resume.is_public == True).limit(100).all()
+    candidate_dicts = [
+        {"id": resume.user.id, "name": resume.user.name, "resume_text": resume.summary or ''}
+        for resume in resumes if resume.user
+    ]
+
+    # Get all unique skills from Skill table (limit for performance)
+    skill_objs = db.query(Skill.name).distinct().limit(100).all()
+    skills = [s[0] for s in skill_objs if s[0]]
+
+    suggestions = advanced_ml_service.get_live_suggestions(
+        query=query,
+        candidates=candidate_dicts,
+        jobs=job_dicts,
+        skills=skills,
+        top_k=top_k
+    )
+    return suggestions

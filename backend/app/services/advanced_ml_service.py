@@ -403,14 +403,20 @@ class AdvancedMLService:
         
         df = pd.DataFrame(jobs_data)
         
+        # Use direct column access with fallback to Series if column is missing
+        salary_col = df['salary'] if 'salary' in df.columns else pd.Series([0])
+        location_col = df['location'] if 'location' in df.columns else pd.Series([''])
+        experience_col = df['experience_years'] if 'experience_years' in df.columns else pd.Series([0])
+        company_col = df['company'] if 'company' in df.columns else pd.Series([''])
+        
         analysis = {
             'total_jobs': len(jobs_data),
-            'avg_salary': df.get('salary', pd.Series([0])).mean(),
-            'salary_distribution': df.get('salary', pd.Series([0])).describe().to_dict(),
+            'avg_salary': salary_col.mean(),
+            'salary_distribution': salary_col.describe().to_dict(),
             'top_skills': self._get_top_skills(jobs_data),
-            'top_locations': df.get('location', pd.Series([''])).value_counts().head(10).to_dict(),
-            'experience_distribution': df.get('experience_years', pd.Series([0])).value_counts().to_dict(),
-            'company_distribution': df.get('company', pd.Series([''])).value_counts().head(10).to_dict()
+            'top_locations': location_col.value_counts().head(10).to_dict(),
+            'experience_distribution': experience_col.value_counts().to_dict(),
+            'company_distribution': company_col.value_counts().head(10).to_dict()
         }
         
         return analysis
@@ -498,6 +504,37 @@ class AdvancedMLService:
         self.vectorizers = model_data['vectorizers']
         self.scalers = model_data['scalers']
         self.encoders = model_data['encoders']
+
+    def get_live_suggestions(
+        self,
+        query: str,
+        candidates: Optional[List[Dict[str, Any]]] = None,
+        jobs: Optional[List[Dict[str, Any]]] = None,
+        skills: Optional[List[str]] = None,
+        top_k: int = 5
+    ) -> Dict[str, List[str]]:
+        """
+        Provide live search suggestions for skills, job titles, and candidate names based on partial input.
+        Returns a dict with keys: 'skills', 'jobs', 'candidates'.
+        """
+        query_lower = query.lower().strip()
+        suggestions = {"skills": [], "jobs": [], "candidates": []}
+
+        # Skills suggestions
+        if skills:
+            suggestions["skills"] = [s for s in skills if query_lower in s.lower()][:top_k]
+
+        # Job title suggestions
+        if jobs:
+            job_titles = [j.get("title", "") for j in jobs]
+            suggestions["jobs"] = [t for t in job_titles if query_lower in t.lower()][:top_k]
+
+        # Candidate name suggestions
+        if candidates:
+            candidate_names = [c.get("name", "") for c in candidates]
+            suggestions["candidates"] = [n for n in candidate_names if query_lower in n.lower()][:top_k]
+
+        return suggestions
 
 # Global instance
 advanced_ml_service = AdvancedMLService() 

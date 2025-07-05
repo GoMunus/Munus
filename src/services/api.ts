@@ -82,8 +82,8 @@ apiClient.interceptors.response.use(
 
     // Format error message for better handling
     let errorMessage = 'An unexpected error occurred';
-    if (error.response?.data?.detail) {
-      errorMessage = error.response.data.detail;
+    if (error.response?.data && typeof error.response.data === 'object' && 'detail' in error.response.data) {
+      errorMessage = (error.response.data as any).detail;
     } else if (error.message) {
       errorMessage = error.message;
     }
@@ -104,8 +104,11 @@ export const api = {
   },
   
   post: <T = any>(url: string, data?: any): Promise<AxiosResponse<T>> => {
+    console.log(`API: Making POST request to ${url}`);
+    console.log('API: Request data:', data);
     return apiClient.post(url, data).catch((error) => {
       console.error(`POST ${url} failed:`, error);
+      console.error('API: Error response:', error.response);
       throw error;
     });
   },
