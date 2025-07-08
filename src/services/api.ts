@@ -1,13 +1,13 @@
 import axios, { AxiosInstance, AxiosResponse, AxiosError } from 'axios';
 
 // API Configuration
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
 const API_VERSION = '/api/v1';
 
 // Create axios instance
 const apiClient: AxiosInstance = axios.create({
   baseURL: `${API_BASE_URL}${API_VERSION}`,
-  timeout: 15000,
+  timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -16,6 +16,7 @@ const apiClient: AxiosInstance = axios.create({
 // Request interceptor to add auth token
 apiClient.interceptors.request.use(
   (config) => {
+    console.log(`Making ${config.method?.toUpperCase()} request to: ${config.baseURL}${config.url}`);
     const token = localStorage.getItem('skillglide-access-token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -30,8 +31,13 @@ apiClient.interceptors.request.use(
 
 // Response interceptor to handle token refresh
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    console.log(`Response from ${response.config.url}:`, response.status);
+    return response;
+  },
   async (error: AxiosError) => {
+    console.error('API response error:', error.response?.status, error.response?.data);
+    
     const originalRequest = error.config;
     if (!originalRequest) {
       console.error('No original request in error:', error);
@@ -82,14 +88,21 @@ apiClient.interceptors.response.use(
 
     // Format error message for better handling
     let errorMessage = 'An unexpected error occurred';
-    if (error.response?.data && typeof error.response.data === 'object' && 'detail' in error.response.data) {
-      errorMessage = (error.response.data as any).detail;
+    if (error.response?.data) {
+      if (typeof error.response.data === 'object' && 'detail' in error.response.data) {
+        errorMessage = (error.response.data as any).detail;
+      } else if (typeof error.response.data === 'string') {
+        errorMessage = error.response.data;
+      }
     } else if (error.message) {
       errorMessage = error.message;
+    } else if (error.code === 'ECONNREFUSED') {
+      errorMessage = 'Cannot connect to server. Please make sure the backend is running on http://localhost:8000';
     }
 
     // Create a new error with the formatted message
     const formattedError = new Error(errorMessage);
+    console.error('Formatted error:', formattedError.message);
     return Promise.reject(formattedError);
   }
 );

@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
+from fastapi.staticfiles import StaticFiles
 import time
 import logging
 from app.core.config import settings
@@ -47,7 +48,13 @@ app = FastAPI(
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for development
+    allow_origins=[
+        "http://localhost:5174",
+        "http://127.0.0.1:5174",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "*"  # Allow all for development
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -152,15 +159,17 @@ async def root():
 
 # Include API router
 app.include_router(api_router, prefix=settings.API_V1_STR)
-app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
-app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
-app.include_router(jobs.router, prefix="/api/v1/jobs", tags=["jobs"])
-app.include_router(resumes.router, prefix="/api/v1/resumes", tags=["resumes"])
-app.include_router(companies.router, prefix="/api/v1/companies", tags=["companies"])
-app.include_router(notifications.router, prefix="/api/v1/notifications", tags=["notifications"])
-app.include_router(upload.router, prefix="/api/v1/upload", tags=["upload"])
-app.include_router(health.router, prefix="/api/v1", tags=["health"])
-app.include_router(contact.router, prefix="/api/v1/contact", tags=["contact"])
+
+# Create uploads directory if it doesn't exist
+import os
+os.makedirs("uploads", exist_ok=True)
+os.makedirs("uploads/avatars", exist_ok=True)
+os.makedirs("uploads/resumes", exist_ok=True)
+os.makedirs("uploads/videos", exist_ok=True)
+os.makedirs("uploads/audio", exist_ok=True)
+
+# Serve uploaded files
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 
 # Twilio setup

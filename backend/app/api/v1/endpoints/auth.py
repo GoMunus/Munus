@@ -27,16 +27,88 @@ def register(
 ):
     """Register a new user"""
     try:
+        print(f"Registration attempt for: {user_data.email}")
+        
         # Check if user already exists
         existing_user = get_user_by_email(db, email=user_data.email)
         if existing_user:
+            print(f"User already exists: {user_data.email}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Email already registered"
             )
         
         # Create new user
+        print(f"Creating new user: {user_data.email}")
         user = create_user(db, user_data)
+        print(f"User created successfully: {user.id}")
+        
+        # Create tokens
+        access_token = create_access_token(subject=user.id)
+        refresh_token = create_refresh_token(subject=user.id)
+        print(f"Tokens created for user: {user.id}")
+        
+        return Token(
+            access_token=access_token,
+            refresh_token=refresh_token,
+            user=user
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        print(f"Registration error: {e}")
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Registration failed: {str(e)}"
+        )
+
+
+@router.post("/login", response_model=Token)
+def login(
+    user_data: UserLogin,
+    db: Session = Depends(get_db)
+):
+    """Login user"""
+    try:
+        print(f"Login attempt for: {user_data.email}")
+        
+        user = get_user_by_email(db, email=user_data.email)
+        
+        if not user:
+            print(f"User not found: {user_data.email}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect email or password"
+            )
+        
+        if not verify_password(user_data.password, user.hashed_password):
+            print(f"Invalid password for user: {user_data.email}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect email or password"
+            )
+        
+        if not user.is_active:
+            print(f"Inactive user: {user_data.email}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Inactive user"
+            )
+        
+        if user.role != user_data.role:
+            print(f"Role mismatch for user {user_data.email}: expected {user_data.role}, got {user.role}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid role for this account"
+            )
+        
+        # Update last login
+        from datetime import datetime
+        user.last_login = datetime.utcnow()
+        db.commit()
+        print(f"Login successful for user: {user.id}")
         
         # Create tokens
         access_token = create_access_token(subject=user.id)
@@ -51,62 +123,11 @@ def register(
         raise
     except Exception as e:
         import traceback
-        print("Registration error:", e)
+        print(f"Login error: {e}")
         traceback.print_exc()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Registration failed"
-        )
-
-
-@router.post("/login", response_model=Token)
-def login(
-    user_data: UserLogin,
-    db: Session = Depends(get_db)
-):
-    """Login user"""
-    try:
-        user = get_user_by_email(db, email=user_data.email)
-        
-        if not user or not verify_password(user_data.password, user.hashed_password):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Incorrect email or password"
-            )
-        
-        if not user.is_active:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Inactive user"
-            )
-        
-        if user.role != user_data.role:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid role for this account"
-            )
-        
-        # Update last login
-        from datetime import datetime
-        user.last_login = datetime.utcnow()
-        db.commit()
-        
-        # Create tokens
-        access_token = create_access_token(subject=user.id)
-        refresh_token = create_refresh_token(subject=user.id)
-        
-        return Token(
-            access_token=access_token,
-            refresh_token=refresh_token,
-            user=user
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"Login error: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Login failed"
+            detail=f"Login failed: {str(e)}"
         )
 
 
