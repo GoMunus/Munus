@@ -1,0 +1,135 @@
+from fastapi import APIRouter, HTTPException, Depends
+from typing import List, Optional
+from datetime import datetime
+from bson import ObjectId
+from app.db.database import get_users_collection
+from app.schemas.mongodb_schemas import MongoDBUser
+
+router = APIRouter()
+
+def get_users_db():
+    return get_users_collection()
+
+
+@router.get("/", response_model=List[MongoDBUser])
+def list_users(
+    skip: int = 0,
+    limit: int = 20,
+    users_collection = Depends(get_users_db)
+):
+    """List all users"""
+    try:
+        cursor = users_collection.find().skip(skip).limit(limit)
+        users = []
+        for user in cursor:
+            user["_id"] = str(user["_id"])
+            users.append(MongoDBUser(**user))
+        return users
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching users: {str(e)}")
+
+
+@router.get("/{user_id}", response_model=MongoDBUser)
+def get_user(
+    user_id: str,
+    users_collection = Depends(get_users_db)
+):
+    """Get a specific user by ID"""
+    try:
+        user = users_collection.find_one({"user_id": user_id})
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        user["_id"] = str(user["_id"])
+        return MongoDBUser(**user)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching user: {str(e)}")
+
+
+@router.post("/", response_model=MongoDBUser)
+def create_user(
+    user_data: dict,
+    users_collection = Depends(get_users_db)
+):
+    """Create a new user"""
+    try:
+        user_doc = {
+            "user_id": user_data.get("user_id"),
+            "email": user_data.get("email"),
+            "name": user_data.get("name"),
+            "role": user_data.get("role", "jobseeker"),
+            "skills": user_data.get("skills", []),
+            "experience_years": user_data.get("experience_years"),
+            "preferred_job_types": user_data.get("preferred_job_types", []),
+            "preferred_locations": user_data.get("preferred_locations", []),
+            "salary_expectations": user_data.get("salary_expectations"),
+            "company_id": user_data.get("company_id"),
+            "company_name": user_data.get("company_name"),
+            "job_alerts": user_data.get("job_alerts", True),
+            "email_notifications": user_data.get("email_notifications", True),
+            "push_notifications": user_data.get("push_notifications", True),
+            "jobs_applied": user_data.get("jobs_applied", 0),
+            "jobs_posted": user_data.get("jobs_posted", 0),
+            "profile_views": user_data.get("profile_views", 0),
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow(),
+            "last_active": datetime.utcnow()
+        }
+        
+        result = users_collection.insert_one(user_doc)
+        user_doc["_id"] = str(result.inserted_id)
+        
+        return MongoDBUser(**user_doc)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating user: {str(e)}")
+
+
+@router.put("/{user_id}", response_model=MongoDBUser)
+def update_user(
+    user_id: str,
+    user_data: dict,
+    users_collection = Depends(get_users_db)
+):
+    """Update a user"""
+    try:
+        update_data = {"updated_at": datetime.utcnow()}
+        for field, value in user_data.items():
+            if value is not None:
+                update_data[field] = value
+        
+        result = users_collection.update_one(
+            {"user_id": user_id},
+            {"$set": update_data}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Return updated user
+        updated_user = users_collection.find_one({"user_id": user_id})
+        updated_user["_id"] = str(updated_user["_id"])
+        return MongoDBUser(**updated_user)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating user: {str(e)}")
+
+
+@router.delete("/{user_id}")
+def delete_user(
+    user_id: str,
+    users_collection = Depends(get_users_db)
+):
+    """Delete a user"""
+    try:
+        result = users_collection.delete_one({"user_id": user_id})
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        return {"message": "User deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting user: {str(e)}") 

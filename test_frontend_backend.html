@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frontend-Backend Test</title>
+</head>
+<body>
+    <h1>Frontend-Backend Connection Test</h1>
+    <button onclick="testJobCreation()">Test Job Creation</button>
+    <div id="result"></div>
+
+    <script>
+        async function testJobCreation() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'Testing...';
+            
+            try {
+                const response = await fetch('http://localhost:8000/api/v1/jobs/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        title: 'Test Job from Frontend',
+                        description: 'Testing frontend-backend connection',
+                        location: 'Remote',
+                        job_type: 'full_time',
+                        work_mode: 'remote',
+                        experience_level: '3-5',
+                        requirements: ['JavaScript'],
+                        responsibilities: ['Code'],
+                        benefits: ['Health'],
+                        required_skills: ['JavaScript'],
+                        salary_min: 50000,
+                        salary_max: 100000,
+                        salary_currency: 'USD'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `<h3>✅ Success!</h3><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                } else {
+                    resultDiv.innerHTML = `<h3>❌ Error: ${response.status}</h3><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<h3>❌ Network Error</h3><pre>${error.message}</pre>`;
+            }
+        }
+    </script>
+</body>
+</html> 

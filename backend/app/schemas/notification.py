@@ -1,13 +1,14 @@
 from typing import Optional
 from pydantic import BaseModel
 from datetime import datetime
-from app.models.notification import NotificationType
+# from app.models.notification import NotificationType
+# Commented out SQLAlchemy model import for MongoDB-only setup.
 
 
 class NotificationBase(BaseModel):
     title: str
     message: str
-    notification_type: NotificationType
+    notification_type: Optional[str]  # NotificationType
     is_important: bool = False
     action_url: Optional[str] = None
     metadata: Optional[str] = None

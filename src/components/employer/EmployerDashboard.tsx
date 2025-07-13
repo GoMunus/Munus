@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Plus, Users, Briefcase, Eye, TrendingUp, Calendar, MapPin, DollarSign, Clock, Star, BarChart3, PieChart, Activity } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
@@ -6,6 +6,9 @@ import { Badge } from '../ui/Badge';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { LoadingSpinner } from '../common/LoadingSpinner';
+import { JobPostingBuilder } from './JobPostingBuilder';
+import { jobService } from '../../services/jobService';
+import { JobCard } from '../jobs/JobCard';
 
 interface EmployerDashboardProps {
   onNavigate: (view: 'dashboard' | 'post-job' | 'jobs' | 'profile') => void;
@@ -15,6 +18,8 @@ export const EmployerDashboard: React.FC<EmployerDashboardProps> = ({ onNavigate
   const { user } = useAuth();
   const { theme } = useTheme();
   const [loading, setLoading] = React.useState(false);
+  const [jobs, setJobs] = useState<any[]>([]);
+  const [showJobBuilder, setShowJobBuilder] = useState(false);
 
   const stats = [
     {
@@ -63,6 +68,24 @@ export const EmployerDashboard: React.FC<EmployerDashboardProps> = ({ onNavigate
       case 'shortlisted': return 'success';
       default: return 'default';
     }
+  };
+
+  const fetchJobs = async () => {
+    try {
+      const allJobs = await jobService.getJobs();
+      setJobs(allJobs.filter(job => job.is_active));
+    } catch (e) {
+      // Optionally handle error
+    }
+  };
+
+  useEffect(() => {
+    fetchJobs();
+  }, []);
+
+  const handleJobPosted = (newJob: any) => {
+    setShowJobBuilder(false);
+    fetchJobs();
   };
 
   if (loading) {
@@ -310,6 +333,25 @@ export const EmployerDashboard: React.FC<EmployerDashboardProps> = ({ onNavigate
           </div>
         </Card>
       </div>
+
+      {showJobBuilder && (
+        <JobPostingBuilder onBack={() => setShowJobBuilder(false)} onJobPosted={handleJobPosted} />
+      )}
+
+      {!showJobBuilder && (
+        <Card>
+          <h2 className="text-xl font-bold mb-4">Active Jobs</h2>
+          {jobs.length === 0 ? (
+            <p>No active jobs yet. Click 'Post New Job' to add one.</p>
+          ) : (
+            <div className="grid gap-4">
+              {jobs.map(job => (
+                <JobCard key={job.id} job={job} />
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
     </div>
   );
 };

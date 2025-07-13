@@ -2,7 +2,7 @@ import os
 import uuid
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
-from sqlalchemy.orm import Session
+# from sqlalchemy.orm import Session  # Removed for MongoDB-only setup
 from app.db.database import get_db
 from app.api.deps import get_current_user
 from app.models.user import User

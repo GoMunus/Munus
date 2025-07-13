@@ -76,7 +76,6 @@ export const Header: React.FC<HeaderProps> = ({
     if (isEmployer) {
       return [
         { name: 'Dashboard', href: '#dashboard', view: 'dashboard' as const, icon: Home },
-        { name: 'Post Job', href: '#post-job', view: 'post-job' as const, icon: User },
         { name: 'Find Candidates', href: '#candidates', view: 'candidates' as const, icon: User },
         { name: 'FAQs', href: '#faqs', view: 'faqs' as const, icon: HelpCircle },
         { name: 'Contact Us', href: '#contact', view: 'contact' as const, icon: Mail },

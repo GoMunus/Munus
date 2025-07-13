@@ -63,6 +63,7 @@ class UserResponse(UserBase):
     email_verified: bool
     created_at: datetime
     last_login: Optional[datetime] = None
+    company_id: Optional[int] = None
     
     class Config:
         from_attributes = True

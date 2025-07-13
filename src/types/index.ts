@@ -21,6 +21,7 @@ export interface User {
   email_verified: boolean;
   created_at: string;
   last_login?: string;
+  company_id?: number;
 }
 
 export interface Job {

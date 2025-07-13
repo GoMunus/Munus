@@ -1,5 +1,5 @@
 from typing import Optional
-from sqlalchemy.orm import Session
+# from sqlalchemy.orm import Session  # Removed for MongoDB-only setup
 from app.core.security import get_password_hash
 from app.models.user import User
 from app.schemas.user import UserCreate, UserUpdate

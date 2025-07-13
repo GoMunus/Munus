@@ -1,17 +1,16 @@
 from typing import Generator, Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy.orm import Session
 from app.core.security import verify_token
-from app.db.database import get_db
-from app.models.user import User
-from app.crud.user import get_user_by_id
+from app.db.database import get_db, get_users_collection
+from app.schemas.mongodb_schemas import MongoDBUser as User
+from bson import ObjectId
 
 security = HTTPBearer()
 
 
-def get_current_user(
-    db: Session = Depends(get_db),
+async def get_current_user(
+    db = Depends(get_db),
     credentials: HTTPAuthorizationCredentials = Depends(security)
 ) -> User:
     """Get current authenticated user"""
@@ -25,12 +24,19 @@ def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    user = get_user_by_id(db, user_id=int(user_id))
-    if user is None:
+    # Get users collection
+    users_collection = get_users_collection()
+    
+    # Find user by ID
+    user_doc = await users_collection.find_one({"_id": ObjectId(user_id)})
+    if user_doc is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
+    
+    # Convert to User schema
+    user = User(**user_doc)
     
     if not user.is_active:
         raise HTTPException(
@@ -77,8 +83,8 @@ def get_current_jobseeker(
     return current_user
 
 
-def get_optional_current_user(
-    db: Session = Depends(get_db),
+async def get_optional_current_user(
+    db = Depends(get_db),
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False))
 ) -> Optional[User]:
     """Get current user if authenticated, otherwise return None"""
@@ -92,7 +98,16 @@ def get_optional_current_user(
         if user_id is None:
             return None
         
-        user = get_user_by_id(db, user_id=int(user_id))
-        return user if user and user.is_active else None
+        # Get users collection
+        users_collection = get_users_collection()
+        
+        # Find user by ID
+        user_doc = await users_collection.find_one({"_id": ObjectId(user_id)})
+        if user_doc is None:
+            return None
+        
+        # Convert to User schema
+        user = User(**user_doc)
+        return user if user.is_active else None
     except:
         return None

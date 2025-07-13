@@ -5,12 +5,13 @@ from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 import time
 import logging
+import os
+from dotenv import load_dotenv
 from app.core.config import settings
-from app.api import api_router
-from app.db.database import engine
-from app.models import user, job, resume, notification, company
+from app.db.database import check_mongodb_health, close_mongodb_connections
 from app.api.v1.endpoints import (
-    auth, users, jobs, resumes, companies, notifications, upload, health, contact
+    mongodb_jobs_clean, mongodb_users, mongodb_notifications, 
+    mongodb_companies, health
 )
 from pydantic import BaseModel
 from twilio.rest import Client
@@ -22,201 +23,117 @@ from fastapi.staticfiles import StaticFiles
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Create database tables
-try:
-    user.Base.metadata.create_all(bind=engine)
-    job.Base.metadata.create_all(bind=engine)
-    resume.Base.metadata.create_all(bind=engine)
-    notification.Base.metadata.create_all(bind=engine)
-    company.Base.metadata.create_all(bind=engine)
-    logger.info("Database tables created successfully")
-except Exception as e:
-    logger.error(f"Error creating database tables: {e}")
+# Load environment variables
+load_dotenv()
 
 # Create FastAPI app
 app = FastAPI(
-    title=settings.PROJECT_NAME,
-    version=settings.VERSION,
-    description=settings.DESCRIPTION,
-    # Remove custom openapi_url and docs_url for now
-    # openapi_url=f"{settings.API_V1_STR}/openapi.json",
-    # docs_url=f"{settings.API_V1_STR}/docs",
-    # redoc_url=f"{settings.API_V1_STR}/redoc",
+    title="Jobify API",
+    description="A job search and recruitment platform API",
+    version="1.0.0",
+    openapi_url=f"{settings.API_V1_STR}/openapi.json"
 )
 
-# Add CORS middleware
+# Twilio setup
+account_sid = os.getenv("TWILIO_ACCOUNT_SID", "")
+auth_token = os.getenv("TWILIO_AUTH_TOKEN", "")
+verify_sid = os.getenv("TWILIO_VERIFY_SID", "")
+client = Client(account_sid, auth_token)
+
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for development
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Add trusted host middleware for production
-if settings.ENVIRONMENT == "production":
-    app.add_middleware(
-        TrustedHostMiddleware,
-        allowed_hosts=["skillglide.com", "*.skillglide.com"]
-    )
-
+# Trusted host middleware
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=["*"]
+)
 
 # Request timing middleware
 @app.middleware("http")
 async def add_process_time_header(request: Request, call_next):
     start_time = time.time()
-    try:
-        response = await call_next(request)
-        process_time = time.time() - start_time
-        response.headers["X-Process-Time"] = str(process_time)
-        return response
-    except Exception as e:
-        logger.error(f"Request processing error: {e}")
-        process_time = time.time() - start_time
-        return JSONResponse(
-            status_code=500,
-            content={"detail": "Internal server error"},
-            headers={"X-Process-Time": str(process_time)}
-        )
+    response = await call_next(request)
+    process_time = time.time() - start_time
+    response.headers["X-Process-Time"] = str(process_time)
+    return response
 
-
-# Validation error handler
+# Exception handlers
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    logger.error(f"Validation error: {exc}")
     return JSONResponse(
         status_code=422,
-        content={"detail": "Validation error", "errors": exc.errors()}
+        content={"detail": exc.errors()}
     )
 
-
-# Global exception handler
 @app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    logger.error(f"Global exception: {exc}")
+async def general_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Unhandled exception: {exc}")
     return JSONResponse(
         status_code=500,
         content={"detail": "Internal server error"}
     )
 
-
-# HTTP exception handler
-@app.exception_handler(HTTPException)
-async def http_exception_handler(request: Request, exc: HTTPException):
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={"detail": exc.detail}
-    )
-
-
 # Health check endpoint
 @app.get("/health")
 async def health_check():
+    """Health check endpoint"""
     try:
-        # Test database connection
-        from app.db.database import SessionLocal
-        db = SessionLocal()
-        db.execute("SELECT 1")
-        db.close()
-        
+        mongodb_status = await check_mongodb_health()
         return {
             "status": "healthy",
-            "version": settings.VERSION,
-            "environment": settings.ENVIRONMENT,
-            "database": "connected"
+            "timestamp": time.time(),
+            "services": {
+                "mongodb": mongodb_status
+            }
         }
     except Exception as e:
-        logger.error(f"Health check failed: {e}")
-        return JSONResponse(
-            status_code=503,
-            content={
-                "status": "unhealthy",
-                "version": settings.VERSION,
-                "environment": settings.ENVIRONMENT,
-                "database": "disconnected",
-                "error": str(e)
-            }
-        )
+        return {
+            "status": "unhealthy",
+            "timestamp": time.time(),
+            "error": str(e)
+        }
 
+# Include all MongoDB endpoints at their original paths
+app.include_router(mongodb_jobs_clean.router, prefix=f"{settings.API_V1_STR}/jobs", tags=["jobs"])
+app.include_router(mongodb_users.router, prefix=f"{settings.API_V1_STR}/users", tags=["users"])
+app.include_router(mongodb_notifications.router, prefix=f"{settings.API_V1_STR}/notifications", tags=["notifications"])
+app.include_router(mongodb_companies.router, prefix=f"{settings.API_V1_STR}/companies", tags=["companies"])
+
+# Include health endpoint
+app.include_router(health.router, prefix=f"{settings.API_V1_STR}/health", tags=["health"])
+
+# Serve static files
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
+# Startup event
+@app.on_event("startup")
+async def startup_event():
+    logger.info("Starting Jobify API server...")
+    logger.info("MongoDB connection established")
+
+# Shutdown event
+@app.on_event("shutdown")
+async def shutdown_event():
+    logger.info("Shutting down Jobify API server...")
+    close_mongodb_connections()
 
 # Root endpoint
 @app.get("/")
 async def root():
     return {
-        "message": "Welcome to SkillGlide API",
-        "version": settings.VERSION,
-        "docs": f"{settings.API_V1_STR}/docs",
-        "status": "running"
+        "message": "Welcome to Jobify API",
+        "version": "1.0.0",
+        "docs": "/docs",
+        "health": "/health"
     }
-
-
-# Include API router
-app.include_router(api_router, prefix=settings.API_V1_STR)
-app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
-app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
-app.include_router(jobs.router, prefix="/api/v1/jobs", tags=["jobs"])
-app.include_router(resumes.router, prefix="/api/v1/resumes", tags=["resumes"])
-app.include_router(companies.router, prefix="/api/v1/companies", tags=["companies"])
-app.include_router(notifications.router, prefix="/api/v1/notifications", tags=["notifications"])
-app.include_router(upload.router, prefix="/api/v1/upload", tags=["upload"])
-app.include_router(health.router, prefix="/api/v1", tags=["health"])
-app.include_router(contact.router, prefix="/api/v1/contact", tags=["contact"])
-
-
-# Twilio setup
-account_sid = os.getenv("TWILIO_ACCOUNT_SID")
-auth_token = os.getenv("TWILIO_AUTH_TOKEN")
-verify_sid = os.getenv("TWILIO_VERIFY_SID")
-client = Client(account_sid, auth_token)
-
-# Input models
-class PhoneNumber(BaseModel):
-    phone: str
-
-class OTPCheck(BaseModel):
-    phone: str
-    code: str
-
-# Send OTP
-@app.post("/send-otp/")
-def send_otp(data: PhoneNumber):
-    try:
-        verification = client.verify.v2.services(verify_sid).verifications.create(
-            to=data.phone,
-            channel="sms"
-        )
-        return {"status": verification.status}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-# Verify OTP
-@app.post("/verify-otp/")
-def verify_otp(data: OTPCheck):
-    try:
-        verification_check = client.verify.v2.services(verify_sid).verification_checks.create(
-            to=data.phone,
-            code=data.code
-        )
-        if verification_check.status == "approved":
-            return {"verified": True}
-        else:
-            return {"verified": False}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-# Serve frontend static files
-frontend_dist = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../dist'))
-if os.path.exists(frontend_dist):
-    app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="static")
-
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(
-        "app.main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=settings.DEBUG,
-        log_level="info"
-    )
+    uvicorn.run(app, host="0.0.0.0", port=8000)

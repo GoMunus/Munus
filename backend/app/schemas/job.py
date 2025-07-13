@@ -1,16 +1,16 @@
 from typing import Optional, List
 from pydantic import BaseModel, validator
 from datetime import datetime
-from app.models.job import JobType, WorkMode, ExperienceLevel, ApplicationStatus
+# Commented out SQLAlchemy model imports for MongoDB-only setup.
 
 
 class JobBase(BaseModel):
     title: str
     description: str
     location: str
-    job_type: JobType
-    work_mode: WorkMode
-    experience_level: ExperienceLevel
+    job_type: Optional[str] # JobType
+    work_mode: Optional[str] # WorkMode
+    experience_level: Optional[str] # ExperienceLevel
 
 
 class JobCreate(JobBase):
@@ -30,9 +30,9 @@ class JobUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     location: Optional[str] = None
-    job_type: Optional[JobType] = None
-    work_mode: Optional[WorkMode] = None
-    experience_level: Optional[ExperienceLevel] = None
+    job_type: Optional[str] = None # JobType
+    work_mode: Optional[str] = None # WorkMode
+    experience_level: Optional[str] = None # ExperienceLevel
     requirements: Optional[List[str]] = None
     responsibilities: Optional[List[str]] = None
     benefits: Optional[List[str]] = None
@@ -69,9 +69,9 @@ class JobResponse(JobBase):
 class JobFilter(BaseModel):
     search: Optional[str] = None
     location: Optional[str] = None
-    job_type: Optional[List[JobType]] = None
-    work_mode: Optional[List[WorkMode]] = None
-    experience_level: Optional[List[ExperienceLevel]] = None
+    job_type: Optional[List[str]] = None # JobType
+    work_mode: Optional[List[str]] = None # WorkMode
+    experience_level: Optional[List[str]] = None # ExperienceLevel
     salary_min: Optional[int] = None
     salary_max: Optional[int] = None
     skills: Optional[List[str]] = None
@@ -90,13 +90,13 @@ class JobApplicationCreate(BaseModel):
 
 
 class JobApplicationUpdate(BaseModel):
-    status: Optional[ApplicationStatus] = None
+    status: Optional[str] = None # ApplicationStatus
     interview_scheduled_at: Optional[datetime] = None
 
 
 class JobApplicationResponse(BaseModel):
     id: int
-    status: ApplicationStatus
+    status: Optional[str] = None # ApplicationStatus
     cover_letter: Optional[str] = None
     resume_url: Optional[str] = None
     video_resume_url: Optional[str] = None

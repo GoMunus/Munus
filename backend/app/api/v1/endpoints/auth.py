@@ -1,7 +1,7 @@
 from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
-from sqlalchemy.orm import Session
+# from sqlalchemy.orm import Session  # Removed for MongoDB-only setup
 from app.core.config import settings
 from app.core.security import (
     create_access_token,

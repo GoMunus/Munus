@@ -6,9 +6,12 @@ import { Input } from '../ui/Input';
 import { Badge } from '../ui/Badge';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { jobService } from '../../services/jobService';
+import { Toast } from '../common/Toast';
 
 interface JobPostingBuilderProps {
   onBack: () => void;
+  onJobPosted?: (job: any) => void;
 }
 
 interface JobData {
@@ -16,7 +19,7 @@ interface JobData {
   department: string;
   location: string;
   workMode: 'remote' | 'onsite' | 'hybrid';
-  jobType: 'full-time' | 'part-time' | 'contract' | 'internship';
+  jobType: 'full_time' | 'part_time' | 'contract' | 'internship' | 'freelance';
   experienceLevel: 'fresher' | '1-2' | '3-5' | '5+';
   salaryMin: string;
   salaryMax: string;
@@ -765,14 +768,14 @@ const steps = [
   { id: 'preview', name: 'Preview', icon: Eye },
 ];
 
-export const JobPostingBuilder: React.FC<JobPostingBuilderProps> = ({ onBack }) => {
+export const JobPostingBuilder: React.FC<JobPostingBuilderProps> = ({ onBack, onJobPosted }) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [jobData, setJobData] = useState<JobData>({
     title: '',
     department: '',
     location: '',
     workMode: 'hybrid',
-    jobType: 'full-time',
+    jobType: 'full_time', // fixed value
     experienceLevel: '3-5',
     salaryMin: '',
     salaryMax: '',
@@ -794,6 +797,8 @@ export const JobPostingBuilder: React.FC<JobPostingBuilderProps> = ({ onBack }) 
   const [filteredJobTitles, setFilteredJobTitles] = useState<string[]>([]);
   const [jobTitleSuggestionsVisible, setJobTitleSuggestionsVisible] = useState(false);
   const jobTitleInputRef = useRef<HTMLInputElement>(null);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const updateJobData = (field: keyof JobData, value: any) => {
     setJobData(prev => ({ ...prev, [field]: value }));
@@ -968,6 +973,89 @@ We offer a collaborative work environment, competitive compensation, and excelle
     }
   };
 
+  const handlePublishJob = async () => {
+    setIsPublishing(true);
+    setToast(null);
+    try {
+      console.log('JobPostingBuilder: Starting job publication...');
+      console.log('JobPostingBuilder: Current jobData:', jobData);
+      
+      // Send ANY data the user has entered - no validation, no requirements
+      const payload = {
+        // Send whatever the user typed (even if empty)
+        title: jobData.title || "Untitled Job",
+        description: jobData.description || "No description",
+        location: jobData.location || "Anywhere",
+        job_type: (jobData.jobType || "full_time").replace(/-/g, "_"),
+        work_mode: (jobData.workMode || "remote").replace(/-/g, "_"),
+        experience_level: jobData.experienceLevel || "Any",
+        // Send all arrays as-is (even if empty)
+        requirements: jobData.requirements,
+        responsibilities: jobData.responsibilities,
+        benefits: jobData.benefits,
+        required_skills: jobData.skills,
+        // Send ANY salary values (including 0, negative, or empty)
+        salary_min: jobData.salaryMin ? Number(jobData.salaryMin) : 0,
+        salary_max: jobData.salaryMax ? Number(jobData.salaryMax) : 0,
+        salary_currency: jobData.currency || "USD",
+        // Add user info if available, but not required
+        ...(user && {
+          employer_id: user.id.toString(),
+          employer_name: user.name,
+          company_id: user.company_id?.toString(),
+          company_name: user.name
+        })
+      };
+      
+      console.log('JobPostingBuilder: Payload to send:', payload);
+      
+      const newJob = await jobService.createJob(payload);
+      console.log('JobPostingBuilder: Job created successfully:', newJob);
+      
+      setToast({ type: 'success', message: 'Job published successfully!' });
+      if (onJobPosted) onJobPosted(newJob);
+      setTimeout(() => {
+        onBack();
+      }, 1200);
+    } catch (error: any) {
+      console.error('JobPostingBuilder: Error publishing job:', error);
+      console.error('JobPostingBuilder: Error details:', {
+        message: error.message,
+        response: error.response,
+        stack: error.stack
+      });
+      
+      const errorMessage = error.response?.data?.detail || error.message || 'Failed to publish job.';
+      console.error('JobPostingBuilder: Setting error toast with message:', errorMessage);
+      setToast({ type: 'error', message: errorMessage });
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
+  // No validation - users can proceed with ANY data
+  const isJobDetailsValid = () => {
+    return true; // Always allow proceeding
+  };
+
+  // No validation - users can proceed with ANY data
+  const isBasicInfoValid = () => {
+    return true; // Always allow proceeding
+  };
+
+  // Add useEffect to load jobData from localStorage on mount
+  useEffect(() => {
+    const savedJobData = localStorage.getItem('jobPostingDraft');
+    if (savedJobData) {
+      setJobData(JSON.parse(savedJobData));
+    }
+  }, []);
+
+  // Add useEffect to auto-save jobData to localStorage on change
+  useEffect(() => {
+    localStorage.setItem('jobPostingDraft', JSON.stringify(jobData));
+  }, [jobData]);
+
   const renderBasicInfo = () => (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1024,7 +1112,7 @@ We offer a collaborative work environment, competitive compensation, and excelle
           <label className={`block text-sm font-medium mb-2 ${
             theme === 'light' ? 'text-gray-700' : 'text-gray-300'
           }`}>
-            Location
+            Location <span className="text-red-500">*</span>
           </label>
           <div className="relative">
             <input
@@ -1041,6 +1129,7 @@ We offer a collaborative work environment, competitive compensation, and excelle
                   : 'border-gray-600 bg-gray-800 text-white focus:ring-cyan-500'
               }`}
               autoComplete="off"
+              required
             />
             <MapPin className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 ${
               theme === 'light' ? 'text-gray-400' : 'text-gray-500'
@@ -1165,9 +1254,10 @@ We offer a collaborative work environment, competitive compensation, and excelle
           <label className={`block text-sm font-medium mb-2 ${
             theme === 'light' ? 'text-gray-700' : 'text-gray-300'
           }`}>
-            Job Type
+            Job Type <span className="text-red-500">*</span>
           </label>
           <select
+            required
             className={`w-full px-4 py-2.5 rounded-lg border focus:ring-2 focus:border-transparent ${
               theme === 'light'
                 ? 'border-gray-300 bg-white text-gray-900 focus:ring-blue-500'
@@ -1176,20 +1266,22 @@ We offer a collaborative work environment, competitive compensation, and excelle
             value={jobData.jobType}
             onChange={(e) => updateJobData('jobType', e.target.value)}
           >
-            <option value="full-time">Full-time</option>
-            <option value="part-time">Part-time</option>
+            <option value="">Select Job Type</option>
+            <option value="full_time">Full Time</option>
+            <option value="part_time">Part Time</option>
             <option value="contract">Contract</option>
             <option value="internship">Internship</option>
+            <option value="freelance">Freelance</option>
           </select>
         </div>
-        
         <div>
           <label className={`block text-sm font-medium mb-2 ${
             theme === 'light' ? 'text-gray-700' : 'text-gray-300'
           }`}>
-            Experience Level
+            Experience Level <span className="text-red-500">*</span>
           </label>
           <select
+            required
             className={`w-full px-4 py-2.5 rounded-lg border focus:ring-2 focus:border-transparent ${
               theme === 'light'
                 ? 'border-gray-300 bg-white text-gray-900 focus:ring-blue-500'
@@ -1198,13 +1290,13 @@ We offer a collaborative work environment, competitive compensation, and excelle
             value={jobData.experienceLevel}
             onChange={(e) => updateJobData('experienceLevel', e.target.value)}
           >
+            <option value="">Select Experience Level</option>
             <option value="fresher">Fresher (0-1 years)</option>
             <option value="1-2">1-2 years</option>
             <option value="3-5">3-5 years</option>
             <option value="5+">5+ years</option>
           </select>
         </div>
-        
         <div className="grid grid-cols-3 gap-2">
           <Input
             label="Min Salary"
@@ -1212,6 +1304,7 @@ We offer a collaborative work environment, competitive compensation, and excelle
             placeholder="50000"
             value={jobData.salaryMin}
             onChange={(e) => updateJobData('salaryMin', e.target.value)}
+            required
             fullWidth
           />
           <Input
@@ -1226,9 +1319,10 @@ We offer a collaborative work environment, competitive compensation, and excelle
             <label className={`block text-sm font-medium mb-2 ${
               theme === 'light' ? 'text-gray-700' : 'text-gray-300'
             }`}>
-              Currency
+              Currency <span className="text-red-500">*</span>
             </label>
             <select
+              required
               className={`w-full px-4 py-2.5 rounded-lg border focus:ring-2 focus:border-transparent ${
                 theme === 'light'
                   ? 'border-gray-300 bg-white text-gray-900 focus:ring-blue-500'
@@ -1237,13 +1331,13 @@ We offer a collaborative work environment, competitive compensation, and excelle
               value={jobData.currency}
               onChange={(e) => updateJobData('currency', e.target.value)}
             >
+              <option value="">Select Currency</option>
               <option value="INR">INR</option>
               <option value="USD">USD</option>
               <option value="EUR">EUR</option>
             </select>
           </div>
         </div>
-        
         <Input
           label="Application Deadline"
           type="date"
@@ -1335,6 +1429,7 @@ We offer a collaborative work environment, competitive compensation, and excelle
                 value={requirement}
                 onChange={(e) => updateListItem('requirements', index, e.target.value)}
                 fullWidth
+                autoComplete="off"
               />
               {jobData.requirements.length > 1 && (
                 <Button
@@ -1483,146 +1578,103 @@ We offer a collaborative work environment, competitive compensation, and excelle
 
   const renderPreview = () => (
     <div className="space-y-6">
-      <Card className="max-w-4xl mx-auto">
+      <Card className="max-w-4xl mx-auto p-8">
         {/* Job Header */}
         <div className="border-b border-gray-200 dark:border-gray-700 pb-6 mb-6">
           <div className="flex items-start justify-between mb-4">
             <div>
-              <h1 className={`text-3xl font-bold mb-2 ${
-                theme === 'light' ? 'text-gray-900' : 'text-white'
-              }`}>
+              <h1 className={`text-3xl font-bold mb-2 ${theme === 'light' ? 'text-gray-900' : 'text-white'}`}>
                 {jobData.title || 'Job Title'}
               </h1>
-              <p className={`text-lg ${
-                theme === 'light' ? 'text-gray-600' : 'text-gray-400'
-              }`}>
-                {(user as any)?.company || 'Company Name'} • {jobData.department}
+              <p className={`text-lg ${theme === 'light' ? 'text-gray-600' : 'text-gray-400'}`}>
+                {(user as any)?.company || 'Company Name'}{jobData.department ? ` • ${jobData.department}` : ''}
               </p>
             </div>
             <Badge variant="success" size="lg" gradient>
               Now Hiring
             </Badge>
           </div>
-          
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="flex items-center space-x-2">
               <MapPin className="w-4 h-4 text-blue-500" />
-              <span className={`text-sm ${
-                theme === 'light' ? 'text-gray-600' : 'text-gray-400'
-              }`}>
-                {jobData.location}
-              </span>
+              <span className="text-sm text-gray-700">{jobData.location || 'Location'}</span>
             </div>
             <div className="flex items-center space-x-2">
-              <Clock className="w-4 h-4 text-green-500" />
-              <span className={`text-sm ${
-                theme === 'light' ? 'text-gray-600' : 'text-gray-400'
-              }`}>
-                {jobData.jobType.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-              </span>
+              <Briefcase className="w-4 h-4 text-green-500" />
+              <span className="text-sm text-gray-700 capitalize">{jobData.jobType.replace('_', ' ') || 'Job Type'}</span>
             </div>
             <div className="flex items-center space-x-2">
               <Users className="w-4 h-4 text-purple-500" />
-              <span className={`text-sm ${
-                theme === 'light' ? 'text-gray-600' : 'text-gray-400'
-              }`}>
-                {jobData.experienceLevel} years
-              </span>
+              <span className="text-sm text-gray-700 capitalize">{jobData.workMode || 'Work Mode'}</span>
             </div>
             <div className="flex items-center space-x-2">
-              <DollarSign className="w-4 h-4 text-orange-500" />
-              <span className={`text-sm ${
-                theme === 'light' ? 'text-gray-600' : 'text-gray-400'
-              }`}>
-                {jobData.currency === 'INR' ? '₹' : '$'}{jobData.salaryMin} - {jobData.salaryMax}
-              </span>
+              <GraduationCap className="w-4 h-4 text-yellow-500" />
+              <span className="text-sm text-gray-700">{jobData.experienceLevel || 'Experience'}</span>
             </div>
           </div>
         </div>
-
-        {/* Job Description */}
-        {jobData.description && (
-          <div className="mb-6">
-            <h2 className={`text-xl font-semibold mb-3 ${
-              theme === 'light' ? 'text-gray-900' : 'text-white'
-            }`}>
-              About This Role
-            </h2>
-            <p className={`leading-relaxed ${
-              theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-            }`}>
-              {jobData.description}
-            </p>
+        {/* Salary & Deadline */}
+        <div className="flex flex-wrap gap-6 mb-6">
+          <div className="flex items-center space-x-2">
+            <DollarSign className="w-4 h-4 text-green-600" />
+            <span className="text-sm text-gray-700">
+              {jobData.salaryMin && jobData.salaryMax
+                ? `${jobData.currency || 'INR'} ${jobData.salaryMin} - ${jobData.salaryMax}`
+                : 'Salary not specified'}
+            </span>
           </div>
-        )}
-
+          {jobData.applicationDeadline && (
+            <div className="flex items-center space-x-2">
+              <Clock className="w-4 h-4 text-blue-600" />
+              <span className="text-sm text-gray-700">Apply by: {jobData.applicationDeadline}</span>
+            </div>
+          )}
+        </div>
+        {/* Description */}
+        <div className="mb-6">
+          <h2 className="text-xl font-semibold mb-2">Job Description</h2>
+          <p className="text-gray-700 dark:text-gray-300 whitespace-pre-line">{jobData.description || 'No description provided.'}</p>
+        </div>
         {/* Responsibilities */}
-        {jobData.responsibilities.filter(r => r.trim()).length > 0 && (
+        {jobData.responsibilities && jobData.responsibilities.filter(r => r.trim()).length > 0 && (
           <div className="mb-6">
-            <h2 className={`text-xl font-semibold mb-3 ${
-              theme === 'light' ? 'text-gray-900' : 'text-white'
-            }`}>
-              Key Responsibilities
-            </h2>
-            <ul className={`list-disc list-inside space-y-2 ${
-              theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-            }`}>
-              {jobData.responsibilities.filter(r => r.trim()).map((responsibility, index) => (
-                <li key={index}>{responsibility}</li>
+            <h2 className="text-xl font-semibold mb-2">Key Responsibilities</h2>
+            <ul className="list-disc pl-6 space-y-1">
+              {jobData.responsibilities.filter(r => r.trim()).map((item, idx) => (
+                <li key={idx} className="text-gray-700 dark:text-gray-300">{item}</li>
               ))}
             </ul>
           </div>
         )}
-
         {/* Requirements */}
-        {jobData.requirements.filter(r => r.trim()).length > 0 && (
+        {jobData.requirements && jobData.requirements.filter(r => r.trim()).length > 0 && (
           <div className="mb-6">
-            <h2 className={`text-xl font-semibold mb-3 ${
-              theme === 'light' ? 'text-gray-900' : 'text-white'
-            }`}>
-              Requirements
-            </h2>
-            <ul className={`list-disc list-inside space-y-2 ${
-              theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-            }`}>
-              {jobData.requirements.filter(r => r.trim()).map((requirement, index) => (
-                <li key={index}>{requirement}</li>
+            <h2 className="text-xl font-semibold mb-2">Requirements</h2>
+            <ul className="list-disc pl-6 space-y-1">
+              {jobData.requirements.filter(r => r.trim()).map((item, idx) => (
+                <li key={idx} className="text-gray-700 dark:text-gray-300">{item}</li>
               ))}
             </ul>
           </div>
         )}
-
         {/* Skills */}
-        {jobData.skills.length > 0 && (
+        {jobData.skills && jobData.skills.length > 0 && (
           <div className="mb-6">
-            <h2 className={`text-xl font-semibold mb-3 ${
-              theme === 'light' ? 'text-gray-900' : 'text-white'
-            }`}>
-              Required Skills
-            </h2>
+            <h2 className="text-xl font-semibold mb-2">Skills</h2>
             <div className="flex flex-wrap gap-2">
-              {jobData.skills.map((skill, index) => (
-                <Badge key={index} variant="outline">
-                  {skill}
-                </Badge>
+              {jobData.skills.map((skill, idx) => (
+                <Badge key={idx} variant="primary">{skill}</Badge>
               ))}
             </div>
           </div>
         )}
-
         {/* Benefits */}
-        {jobData.benefits.filter(b => b.trim()).length > 0 && (
+        {jobData.benefits && jobData.benefits.filter(b => b.trim()).length > 0 && (
           <div className="mb-6">
-            <h2 className={`text-xl font-semibold mb-3 ${
-              theme === 'light' ? 'text-gray-900' : 'text-white'
-            }`}>
-              Benefits & Perks
-            </h2>
-            <ul className={`list-disc list-inside space-y-2 ${
-              theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-            }`}>
-              {jobData.benefits.filter(b => b.trim()).map((benefit, index) => (
-                <li key={index}>{benefit}</li>
+            <h2 className="text-xl font-semibold mb-2">Benefits & Perks</h2>
+            <ul className="list-disc pl-6 space-y-1">
+              {jobData.benefits.filter(b => b.trim()).map((item, idx) => (
+                <li key={idx} className="text-gray-700 dark:text-gray-300">{item}</li>
               ))}
             </ul>
           </div>
@@ -1631,170 +1683,94 @@ We offer a collaborative work environment, competitive compensation, and excelle
     </div>
   );
 
-  const renderStepContent = () => {
-    switch (steps[currentStep].id) {
-      case 'basic': return renderBasicInfo();
-      case 'details': return renderJobDetails();
-      case 'requirements': return renderRequirements();
-      case 'description': return renderDescription();
-      case 'preview': return renderPreview();
-      default: return null;
-    }
-  };
+  // Step rendering logic
+  const stepComponents = [
+    renderBasicInfo,
+    renderJobDetails,
+    renderRequirements,
+    renderDescription,
+    renderPreview
+  ];
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center space-x-4 mb-4">
-          <Button
-            variant="ghost"
-            onClick={onBack}
-            icon={<ArrowLeft className="w-4 h-4" />}
-          >
-            Back to Dashboard
-          </Button>
-          <div className={`w-8 h-8 bg-gradient-to-br from-blue-600 to-cyan-500 rounded-lg flex items-center justify-center ${
-            theme === 'dark-neon' ? 'shadow-lg shadow-blue-500/25' : 'shadow-lg'
-          }`}>
-            <Zap className="w-5 h-5 text-white" />
+    <div className="max-w-4xl mx-auto py-8">
+      {/* Stepper */}
+      <div className="flex items-center justify-between mb-8">
+        {steps.map((step, idx) => (
+          <div key={step.id} className="flex-1 flex flex-col items-center">
+            <div
+              className={`w-10 h-10 flex items-center justify-center rounded-full border-2 transition-colors duration-200 ${
+                idx === currentStep
+                  ? 'border-blue-500 bg-blue-500 text-white'
+                  : idx < currentStep
+                  ? 'border-green-500 bg-green-500 text-white'
+                  : 'border-gray-300 bg-white text-gray-400'
+              }`}
+            >
+              <step.icon className="w-5 h-5" />
+            </div>
+            <span
+              className={`mt-2 text-xs font-medium text-center ${
+                idx === currentStep
+                  ? 'text-blue-500'
+                  : idx < currentStep
+                  ? 'text-green-500'
+                  : 'text-gray-400'
+              }`}
+            >
+              {step.name}
+            </span>
           </div>
-          <h1 className={`text-3xl font-bold ${
-            theme === 'light' ? 'text-gray-900' : 'text-white'
-          }`}>
-            Job Posting
-          </h1>
-        </div>
-        <p className={`text-lg ${
-          theme === 'light' ? 'text-gray-600' : 'text-gray-400'
-        }`}>
-          Create compelling job postings to attract the best candidates
-        </p>
+        ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-        {/* Progress Sidebar */}
-        <div className="lg:col-span-1">
-          <Card>
-            <h3 className={`text-lg font-semibold mb-4 ${
-              theme === 'light' ? 'text-gray-900' : 'text-white'
-            }`}>
-              Progress
-            </h3>
-            <div className="space-y-2">
-              {steps.map((step, index) => {
-                const Icon = step.icon;
-                const isActive = index === currentStep;
-                const isComplete = index < currentStep;
-                
-                return (
-                  <button
-                    key={step.id}
-                    onClick={() => setCurrentStep(index)}
-                    className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors ${
-                      isActive
-                        ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
-                        : isComplete
-                        ? 'text-green-600 dark:text-green-400 hover:bg-gray-100 dark:hover:bg-gray-800'
-                        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
-                    }`}
-                  >
-                    <div className={`p-1 rounded ${
-                      isActive ? 'bg-blue-200 dark:bg-blue-800' : 
-                      isComplete ? 'bg-green-200 dark:bg-green-800' : 
-                      'bg-gray-200 dark:bg-gray-700'
-                    }`}>
-                      {isComplete ? <CheckCircle className="w-4 h-4" /> : <Icon className="w-4 h-4" />}
-                    </div>
-                    <span className="text-sm font-medium">{step.name}</span>
-                  </button>
-                );
-              })}
-            </div>
+      {/* Step Content */}
+      <div className="mb-8">
+        {stepComponents[currentStep]()}
+      </div>
 
-            {/* Progress Bar */}
-            <div className="mt-6">
-              <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400 mb-2">
-                <span>Progress</span>
-                <span>{Math.round(((currentStep + 1) / steps.length) * 100)}%</span>
-              </div>
-              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                <div
-                  className="bg-gradient-to-r from-blue-500 to-teal-500 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${((currentStep + 1) / steps.length) * 100}%` }}
-                />
-              </div>
-            </div>
-          </Card>
-        </div>
-
-        {/* Main Content */}
-        <div className="lg:col-span-3">
-          <Card className="min-h-[600px]">
-            <div className="mb-6">
-              <div className="flex items-center space-x-2 mb-2">
-                {React.createElement(steps[currentStep].icon, { className: "w-5 h-5 text-blue-600" })}
-                <h2 className={`text-xl font-semibold ${
-                  theme === 'light' ? 'text-gray-900' : 'text-white'
-                }`}>
-                  {steps[currentStep].name}
-                </h2>
-              </div>
-              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1">
-                <div
-                  className="bg-gradient-to-r from-blue-500 to-teal-500 h-1 rounded-full transition-all duration-300"
-                  style={{ width: `${((currentStep + 1) / steps.length) * 100}%` }}
-                />
-              </div>
-            </div>
-
-            {/* Step Content */}
-            <div className="mb-8">
-              {renderStepContent()}
-            </div>
-
-            {/* Navigation Buttons */}
-            <div className="flex justify-between items-center pt-6 border-t border-gray-200 dark:border-gray-700">
-              <Button
-                variant="outline"
-                onClick={prevStep}
-                disabled={currentStep === 0}
-                icon={<ArrowLeft className="w-4 h-4" />}
-              >
-                Previous
-              </Button>
-
-              <div className="flex space-x-2">
-                <Button
-                  variant="ghost"
-                  icon={<Save className="w-4 h-4" />}
-                >
-                  Save Draft
-                </Button>
-                
-                {currentStep === steps.length - 1 ? (
-                  <Button
-                    variant="primary"
-                    icon={<Send className="w-4 h-4" />}
-                    className="shadow-lg"
-                  >
-                    Publish Job
-                  </Button>
-                ) : (
-                  <Button 
-                    variant="primary" 
-                    onClick={nextStep}
-                    icon={<ArrowRight className="w-4 h-4" />}
-                    iconPosition="right"
-                  >
-                    Next Step
-                  </Button>
-                )}
-              </div>
-            </div>
-          </Card>
+      {/* Navigation Buttons */}
+      <div className="flex justify-between items-center">
+        <Button
+          variant="outline"
+          onClick={currentStep === 0 ? onBack : prevStep}
+          disabled={isPublishing}
+        >
+          {currentStep === 0 ? 'Cancel' : 'Back'}
+        </Button>
+        <div className="flex space-x-2">
+          {currentStep < steps.length - 1 && (
+            <Button
+              variant="primary"
+              onClick={nextStep}
+              disabled={isPublishing}
+            >
+              Next
+            </Button>
+          )}
+          {currentStep === steps.length - 1 && (
+            <Button
+              variant="success"
+              onClick={handlePublishJob}
+              loading={isPublishing}
+            >
+              Publish Job
+            </Button>
+          )}
         </div>
       </div>
+
+      {/* Toast Notification */}
+      {toast && (
+        <Toast
+          id="job-toast"
+          type={toast.type}
+          title={toast.type === 'success' ? 'Success' : 'Error'}
+          message={toast.message}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
-};
+};    
+

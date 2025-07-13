@@ -1,8 +1,6 @@
-from typing import List, Optional
+from typing import List, Optional, Union
 from pydantic import AnyHttpUrl, validator
-from pydantic_settings import BaseSettings
-import os
-from fastapi.middleware.cors import CORSMiddleware
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -21,18 +19,18 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str
     ASYNC_DATABASE_URL: str
-    
+
     # CORS
     BACKEND_CORS_ORIGINS: List[AnyHttpUrl] = []
-    
+
     @validator("BACKEND_CORS_ORIGINS", pre=True)
-    def assemble_cors_origins(cls, v: str | List[str]) -> List[str] | str:
+    def assemble_cors_origins(cls, v: Union[str, List[str]]) -> Union[List[str], str]:
         if isinstance(v, str) and not v.startswith("["):
             return [i.strip() for i in v.split(",")]
         elif isinstance(v, (list, str)):
             return v
         raise ValueError(v)
-    
+
     # Email Configuration
     MAIL_USERNAME: str
     MAIL_PASSWORD: str
@@ -53,20 +51,21 @@ class Settings(BaseSettings):
     # Environment
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
-    
-    # OpenAI API Key
-    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
-    
-    # Twilio Configuration for OTP
-    TWILIO_ACCOUNT_SID: str = os.getenv("TWILIO_ACCOUNT_SID", "")
-    TWILIO_AUTH_TOKEN: str = os.getenv("TWILIO_AUTH_TOKEN", "")
-    TWILIO_VERIFY_SID: str = os.getenv("TWILIO_VERIFY_SID", "")
-    TWILIO_PHONE_NUMBER: str = os.getenv("TWILIO_PHONE_NUMBER", "")
-    OTP_EXPIRY_MINUTES: int = int(os.getenv("OTP_EXPIRY_MINUTES", "5"))
-    
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
+
+    # OpenAI / Twilio
+    OPENAI_API_KEY: Optional[str] = None
+    TWILIO_ACCOUNT_SID: Optional[str] = None
+    TWILIO_AUTH_TOKEN: Optional[str] = None
+    TWILIO_VERIFY_SID: Optional[str] = None
+    TWILIO_PHONE_NUMBER: Optional[str] = None
+    OTP_EXPIRY_MINUTES: int = 5
+
+    # MongoDB
+    MONGODB_URI: str = "mongodb://localhost:27017"
+    MONGODB_DB_NAME: str = "jobify"
+
+    # ✅ This is what makes .env auto-load
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
 
 settings = Settings()
