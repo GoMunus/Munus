@@ -96,7 +96,9 @@ apiClient.interceptors.response.use(
       }
     } else if (error.message) {
       errorMessage = error.message;
-    } else if (error.code === 'ECONNREFUSED') {
+    } else if (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK') {
+      errorMessage = 'Cannot connect to server. Please make sure the backend is running on http://localhost:8000';
+    } else if (error.message === 'Network Error') {
       errorMessage = 'Cannot connect to server. Please make sure the backend is running on http://localhost:8000';
     }
 

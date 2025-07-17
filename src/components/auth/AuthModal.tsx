@@ -115,12 +115,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       onClose();
     } catch (error: any) {
       console.error('Authentication error:', error);
-      // Always show a user-friendly message for login failures
-      setErrors({ 
-        general: mode === 'login' 
+      // Show specific error messages based on error type
+      let errorMessage = '';
+      if (error.message?.includes('Cannot connect to server')) {
+        errorMessage = 'Cannot connect to server. Please make sure the backend is running and try again.';
+      } else if (mode === 'login') {
+        errorMessage = error.message?.includes('Invalid credentials') || error.message?.includes('401') 
           ? 'Invalid email address or password' 
-          : (error.message || 'Authentication failed. Please check your credentials and try again.')
-      });
+          : 'Login failed. Please check your connection and try again.';
+      } else {
+        errorMessage = error.message || 'Registration failed. Please check your connection and try again.';
+      }
+      
+      setErrors({ general: errorMessage });
     } finally {
       setIsSubmitting(false);
     }
