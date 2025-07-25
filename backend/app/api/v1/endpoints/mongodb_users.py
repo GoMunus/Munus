@@ -77,7 +77,7 @@ def create_user(
             "updated_at": datetime.utcnow(),
             "last_active": datetime.utcnow()
         }
-        
+        print("[DEBUG] Creating user in MongoDB with user_doc:", user_doc)
         result = users_collection.insert_one(user_doc)
         user_doc["_id"] = str(result.inserted_id)
         

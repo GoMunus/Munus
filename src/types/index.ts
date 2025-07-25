@@ -1,6 +1,7 @@
 // Core type definitions for the job portal
 export interface User {
-  id: number;
+  id?: number;
+  _id?: string;
   email: string;
   name: string;
   role: 'jobseeker' | 'employer' | 'admin';
@@ -22,6 +23,7 @@ export interface User {
   created_at: string;
   last_login?: string;
   company_id?: number;
+  company_name?: string;
 }
 
 export interface Job {

@@ -59,21 +59,21 @@ export const HomePage: React.FC<HomePageProps> = ({ onGetStarted, onSignIn, onFi
                 AI-Powered Job Portal
               </Badge>
               
-              <h1 className={`text-5xl lg:text-7xl font-bold mb-6 leading-tight ${
+              <h1 className={`text-[2.95rem] lg:text-[4.95rem] font-bold mb-6 leading-tight ${
                 theme === 'light' 
                   ? 'text-gray-900' 
                   : 'text-white'
               }`}>
-                Find Your
+                Discover
                 <span className={`block font-black animate-pulse-slow ${
                   theme === 'light'
                     ? 'text-blue-800'
                     : 'bg-gradient-to-r from-blue-400 via-purple-500 to-cyan-400 bg-clip-text text-transparent'
                 }`}>
-                  Dream Job
+                  Opportunities
                 </span>
                 <span className={theme === 'light' ? 'text-gray-800' : 'text-white'}>
-                  with AI
+                  That Truly Fit You
                 </span>
               </h1>
               

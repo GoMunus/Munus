@@ -8,10 +8,10 @@ import logging
 import os
 from dotenv import load_dotenv
 from app.core.config import settings
-from app.db.database import check_mongodb_health, close_mongodb_connections
+from app.db.mongodb import connect_to_mongo, close_mongo_connection
 from app.api.v1.endpoints import (
     mongodb_jobs_clean, mongodb_users, mongodb_notifications, 
-    mongodb_companies, health
+    mongodb_companies, health, auth
 )
 from pydantic import BaseModel
 from twilio.rest import Client
@@ -85,7 +85,13 @@ async def general_exception_handler(request: Request, exc: Exception):
 async def health_check():
     """Health check endpoint"""
     try:
-        mongodb_status = await check_mongodb_health()
+        from app.db.mongodb import async_client
+        if async_client:
+            await async_client.admin.command('ping')
+            mongodb_status = {"status": "healthy", "database": "mongodb"}
+        else:
+            mongodb_status = {"status": "unhealthy", "error": "MongoDB not connected"}
+        
         return {
             "status": "healthy",
             "timestamp": time.time(),
@@ -105,6 +111,7 @@ app.include_router(mongodb_jobs_clean.router, prefix=f"{settings.API_V1_STR}/job
 app.include_router(mongodb_users.router, prefix=f"{settings.API_V1_STR}/users", tags=["users"])
 app.include_router(mongodb_notifications.router, prefix=f"{settings.API_V1_STR}/notifications", tags=["notifications"])
 app.include_router(mongodb_companies.router, prefix=f"{settings.API_V1_STR}/companies", tags=["companies"])
+app.include_router(auth.router, prefix=f"{settings.API_V1_STR}/auth", tags=["auth"])
 
 # Include health endpoint
 app.include_router(health.router, prefix=f"{settings.API_V1_STR}/health", tags=["health"])
@@ -116,13 +123,14 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 @app.on_event("startup")
 async def startup_event():
     logger.info("Starting Jobify API server...")
+    await connect_to_mongo()
     logger.info("MongoDB connection established")
 
 # Shutdown event
 @app.on_event("shutdown")
 async def shutdown_event():
     logger.info("Shutting down Jobify API server...")
-    close_mongodb_connections()
+    await close_mongo_connection()
 
 # Root endpoint
 @app.get("/")

@@ -65,7 +65,7 @@ export const JobProvider: React.FC<JobProviderProps> = ({ children }) => {
           job.title.toLowerCase().includes(searchLower) ||
           job.description.toLowerCase().includes(searchLower) ||
           job.location.toLowerCase().includes(searchLower) ||
-          (job.skills && job.skills.some(skill => skill.toLowerCase().includes(searchLower)))
+          (job.required_skills && job.required_skills.some((skill: string) => skill.toLowerCase().includes(searchLower)))
         );
       }
 
@@ -119,6 +119,7 @@ export const JobProvider: React.FC<JobProviderProps> = ({ children }) => {
         
         filtered = filtered.filter(job => {
           try {
+            if (!job.created_at) return true; // Include jobs without dates
             const jobDate = new Date(job.created_at);
             return jobDate >= cutoffDate;
           } catch (e) {
@@ -132,7 +133,7 @@ export const JobProvider: React.FC<JobProviderProps> = ({ children }) => {
       if (filters.skills && filters.skills.length > 0) {
         filtered = filtered.filter(job =>
           filters.skills!.some(skill =>
-            job.skills && job.skills.some(jobSkill => 
+            job.required_skills && job.required_skills.some((jobSkill: string) => 
               jobSkill.toLowerCase().includes(skill.toLowerCase())
             )
           )
@@ -167,7 +168,7 @@ export const JobProvider: React.FC<JobProviderProps> = ({ children }) => {
     if (isAuthenticated) {
       refetchJobs();
     }
-  }, [isAuthenticated, refetchJobs]);
+  }, [isAuthenticated]); // Removed refetchJobs from dependencies
 
   return (
     <JobContext.Provider

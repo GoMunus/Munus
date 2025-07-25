@@ -982,29 +982,23 @@ We offer a collaborative work environment, competitive compensation, and excelle
       
       // Send ANY data the user has entered - no validation, no requirements
       const payload = {
-        // Send whatever the user typed (even if empty)
         title: jobData.title || "Untitled Job",
         description: jobData.description || "No description",
         location: jobData.location || "Anywhere",
         job_type: (jobData.jobType || "full_time").replace(/-/g, "_"),
-        work_mode: (jobData.workMode || "remote").replace(/-/g, "_"),
+        work_mode: (jobData.workMode === 'onsite' ? 'on_site' : (jobData.workMode || "remote")),
         experience_level: jobData.experienceLevel || "Any",
-        // Send all arrays as-is (even if empty)
         requirements: jobData.requirements,
         responsibilities: jobData.responsibilities,
         benefits: jobData.benefits,
         required_skills: jobData.skills,
-        // Send ANY salary values (including 0, negative, or empty)
-        salary_min: jobData.salaryMin ? Number(jobData.salaryMin) : 0,
-        salary_max: jobData.salaryMax ? Number(jobData.salaryMax) : 0,
+        salary_min: jobData.salaryMin ? Number(jobData.salaryMin) : undefined,
+        salary_max: jobData.salaryMax ? Number(jobData.salaryMax) : undefined,
         salary_currency: jobData.currency || "USD",
-        // Add user info if available, but not required
-        ...(user && {
-          employer_id: user.id.toString(),
-          employer_name: user.name,
-          company_id: user.company_id?.toString(),
-          company_name: user.name
-        })
+        // Add employer information from authenticated user
+        employer_id: user?._id || `emp_${Date.now()}`,
+        employer_name: user?.name || "Anonymous Employer",
+        company_name: user?.company_name || user?.name || "Anonymous Company"
       };
       
       console.log('JobPostingBuilder: Payload to send:', payload);

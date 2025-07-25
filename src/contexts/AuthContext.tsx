@@ -37,32 +37,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        const token = authService.getAccessToken();
-        if (token) {
-          // Try to get fresh user data from API
-          try {
-            const userData = await userService.getCurrentUser();
-            setUser(userData);
-          } catch (error) {
-            // If API call fails, fallback to stored user data
-            const storedUser = authService.getCurrentUser();
-            if (storedUser) {
-              setUser(storedUser);
-            } else {
-              // Clear invalid tokens
-              authService.logout();
-            }
-          }
-        } else {
-          // Fallback to stored user data
-          const storedUser = authService.getCurrentUser();
-          if (storedUser) {
-            setUser(storedUser);
-          }
+        const storedUser = authService.getCurrentUser();
+        if (storedUser) {
+          setUser(storedUser);
         }
       } catch (error) {
         console.error('Failed to initialize auth:', error);
-        // Clear invalid tokens
         authService.logout();
       } finally {
         setLoading(false);
@@ -73,12 +53,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   const login = async (email: string, password: string, role: 'jobseeker' | 'employer') => {
+    console.log('🔐 AuthContext login called', { email, role });
     setLoading(true);
     try {
       const response = await authService.login(email, password, role);
+      console.log('✅ Login response received', { user: response.user });
       setUser(response.user);
+      // Force a refresh to ensure the state is properly updated
+      setTimeout(() => {
+        const storedUser = authService.getCurrentUser();
+        console.log('🔄 Refreshing user state', { storedUser });
+        if (storedUser) {
+          setUser(storedUser);
+        }
+      }, 100);
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('❌ Login error:', error);
       throw error;
     } finally {
       setLoading(false);
@@ -90,6 +80,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       const response = await authService.register(userData);
       setUser(response.user);
+      // Force a refresh to ensure the state is properly updated
+      setTimeout(() => {
+        const storedUser = authService.getCurrentUser();
+        if (storedUser) {
+          setUser(storedUser);
+        }
+      }, 100);
     } catch (error) {
       console.error('Registration error:', error);
       throw error;
@@ -102,7 +99,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       authService.logout();
       setUser(null);
-      // Force page reload to clear any cached data
+      // Redirect to home page after logout
       window.location.href = '/';
     } catch (error) {
       console.error('Logout error:', error);
@@ -111,15 +108,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const refreshUser = async () => {
     try {
-      const userData = await userService.getCurrentUser();
-      setUser(userData);
-    } catch (error) {
-      console.error('Failed to refresh user data:', error);
-      // If refresh fails, check if we still have stored user data
       const storedUser = authService.getCurrentUser();
-      if (!storedUser) {
+      if (storedUser) {
+        setUser(storedUser);
+      } else {
         logout();
       }
+    } catch (error) {
+      console.error('Failed to refresh user data:', error);
+      logout();
     }
   };
 

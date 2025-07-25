@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 interface UseApiState<T> {
   data: T | null;
@@ -17,6 +17,7 @@ export function useApi<T = any>(
   options: UseApiOptions = {}
 ) {
   const { immediate = true, onSuccess, onError } = options;
+  const isMountedRef = useRef(true);
   
   const [state, setState] = useState<UseApiState<T>>({
     data: null,
@@ -24,37 +25,39 @@ export function useApi<T = any>(
     error: null,
   });
 
-  const execute = useCallback(async (...args: any[]) => {
+  const execute = useCallback(async () => {
     setState(prev => ({ ...prev, loading: true, error: null }));
     
     try {
-      const result = await apiFunction(...args);
-      setState({ data: result, loading: false, error: null });
-      onSuccess?.(result);
+      const result = await apiFunction();
+      if (isMountedRef.current) {
+        setState({ data: result, loading: false, error: null });
+        onSuccess?.(result);
+      }
       return result;
     } catch (error: any) {
-      const errorMessage = error.response?.data?.detail || error.message || 'An error occurred';
-      setState(prev => ({ ...prev, loading: false, error: errorMessage }));
-      onError?.(errorMessage);
+      if (isMountedRef.current) {
+        const errorMessage = error.response?.data?.detail || error.message || 'An error occurred';
+        setState(prev => ({ ...prev, loading: false, error: errorMessage }));
+        onError?.(errorMessage);
+      }
       throw error;
     }
   }, [apiFunction, onSuccess, onError]);
 
   useEffect(() => {
-    let isMounted = true;
-    
     if (immediate) {
       setState(prev => ({ ...prev, loading: true, error: null }));
       
       apiFunction()
         .then(result => {
-          if (isMounted) {
+          if (isMountedRef.current) {
             setState({ data: result, loading: false, error: null });
             onSuccess?.(result);
           }
         })
         .catch(error => {
-          if (isMounted) {
+          if (isMountedRef.current) {
             const errorMessage = error.response?.data?.detail || error.message || 'An error occurred';
             setState(prev => ({ ...prev, loading: false, error: errorMessage }));
             onError?.(errorMessage);
@@ -63,9 +66,9 @@ export function useApi<T = any>(
     }
     
     return () => {
-      isMounted = false;
+      isMountedRef.current = false;
     };
-  }, [immediate, apiFunction, onSuccess, onError]);
+  }, [immediate]); // Removed apiFunction, onSuccess, onError from dependencies
 
   return {
     ...state,

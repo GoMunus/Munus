@@ -5,6 +5,7 @@ import { ProfileCreation } from './components/profile/ProfileCreation';
 import { ProfilePage } from './components/profile/ProfilePage';
 import { JobFilters } from './components/jobs/JobFilters';
 import { JobList } from './components/jobs/JobList';
+import { JobSeekerDashboard } from './components/jobs/JobSeekerDashboard';
 import { ResumeBuilder } from './components/resume/ResumeBuilder';
 import { EmployerDashboard } from './components/employer/EmployerDashboard';
 import { JobPostingBuilder } from './components/employer/JobPostingBuilder';
@@ -44,20 +45,69 @@ const AppContent: React.FC = () => {
       if (isEmployer) {
         setCurrentView('dashboard');
       } else if (isJobSeeker) {
-        setCurrentView('jobs');
+        setCurrentView('dashboard');
       }
     }
   }, [isAuthenticated, isEmployer, isJobSeeker, currentView]);
 
+  // Auto-redirect authenticated users to dashboard
+  useEffect(() => {
+    const storedUserStr = localStorage.getItem('skillglide-user');
+    console.log('🔄 Auto-redirect useEffect triggered', {
+      isAuthenticated,
+      storedUserStr: !!storedUserStr,
+      currentView
+    });
+    
+    if (storedUserStr && !isAuthenticated) {
+      // User exists in localStorage but not in context (just registered)
+      const storedUser = JSON.parse(storedUserStr);
+      console.log('👤 Found user in localStorage', { role: storedUser.role });
+      if (storedUser.role === 'employer' || storedUser.role === 'jobseeker') {
+        console.log('🎯 Auto-redirecting to dashboard');
+        setCurrentView('dashboard');
+      }
+    }
+  }, [isAuthenticated]);
+
   const handleGetStarted = () => {
-    if (isAuthenticated) {
+    // Check if user is authenticated (either from context or localStorage)
+    const storedUserStr = localStorage.getItem('skillglide-user');
+    const isUserAuthenticated = isAuthenticated || !!storedUserStr;
+    
+    console.log('🚀 handleGetStarted called', {
+      isAuthenticated,
+      isEmployer,
+      isJobSeeker,
+      storedUserStr: !!storedUserStr,
+      isUserAuthenticated
+    });
+    
+    if (isUserAuthenticated) {
       // If already authenticated, go to appropriate page
       if (isEmployer) {
+        console.log('🎯 Redirecting to employer dashboard');
         setCurrentView('dashboard');
+      } else if (isJobSeeker) {
+        console.log('🎯 Redirecting to job seeker dashboard');
+        setCurrentView('dashboard');
+      } else if (storedUserStr) {
+        // Fallback: check localStorage for user role
+        const storedUser = JSON.parse(storedUserStr);
+        console.log('📋 Using localStorage fallback', { role: storedUser.role });
+        if (storedUser.role === 'employer') {
+          console.log('🎯 Redirecting to employer dashboard (fallback)');
+          setCurrentView('dashboard');
+        } else {
+          console.log('🎯 Redirecting to job seeker dashboard (fallback)');
+          setCurrentView('dashboard');
+        }
       } else {
-        setCurrentView('jobs');
+        console.log('🎯 Redirecting to dashboard (default)');
+        setCurrentView('dashboard');
       }
     } else {
+      console.log('📝 User not authenticated, going to profile creation');
       setCurrentView('create-profile');
     }
   };
@@ -68,14 +118,27 @@ const AppContent: React.FC = () => {
   };
 
   const handleProfileCreationComplete = () => {
-    // Add a small delay to ensure authentication state is updated
-    setTimeout(() => {
-      if (isEmployer) {
+    // Redirect immediately after registration based on user role
+    // Get the current user from localStorage since registration just completed
+    const storedUserStr = localStorage.getItem('skillglide-user');
+    if (storedUserStr) {
+      const storedUser = JSON.parse(storedUserStr);
+      console.log('User registered:', storedUser);
+      
+      if (storedUser.role === 'employer') {
+        console.log('Redirecting to employer dashboard');
+        setCurrentView('dashboard');
+      } else if (storedUser.role === 'jobseeker') {
+        console.log('Redirecting to job seeker dashboard');
         setCurrentView('dashboard');
       } else {
-        setCurrentView('jobs');
+        console.log('Unknown role, redirecting to home');
+        setCurrentView('home');
       }
-    }, 100);
+    } else {
+      console.log('No user found, redirecting to home');
+      setCurrentView('home');
+    }
   };
 
   const handleProfileCreationBack = () => {
@@ -137,7 +200,11 @@ const AppContent: React.FC = () => {
         case 'resume':
           return <ResumeBuilder />;
         case 'dashboard':
-          return <EmployerDashboard onNavigate={setCurrentView} />;
+          return isEmployer ? (
+            <EmployerDashboard onNavigate={setCurrentView} />
+          ) : (
+            <JobSeekerDashboard onNavigate={setCurrentView} />
+          );
         case 'post-job':
           return <JobPostingBuilder onBack={() => setCurrentView('dashboard')} />;
         case 'candidates':

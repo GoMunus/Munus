@@ -15,6 +15,11 @@ export interface RegisterRequest {
   phone?: string;
   location?: string;
   company?: string;
+  skills?: string[];
+  experience_years?: number;
+  preferred_job_types?: string[];
+  preferred_locations?: string[];
+  salary_expectations?: { min: number; max: number; currency: string };
 }
 
 export interface AuthResponse {
@@ -25,13 +30,13 @@ export interface AuthResponse {
 }
 
 class AuthService {
-  async login(email: string, password: string, role: 'jobseeker' | 'employer'): Promise<AuthResponse> {
+  async login(email: string, password: string, role: 'jobseeker' | 'employer'): Promise<any> {
     try {
-      const response = await api.post<AuthResponse>('/auth/login', { email, password, role });
-      const { access_token, refresh_token, user } = response.data;
+      const response = await api.post('/auth/login', { email, password, role });
+      const { access_token, user } = response.data;
       
+      // Store user data and token
       localStorage.setItem('skillglide-access-token', access_token);
-      localStorage.setItem('skillglide-refresh-token', refresh_token);
       localStorage.setItem('skillglide-user', JSON.stringify(user));
       
       return response.data;
@@ -41,22 +46,34 @@ class AuthService {
     }
   }
 
-  async register(userData: RegisterRequest): Promise<AuthResponse> {
+  async register(userData: RegisterRequest): Promise<any> {
     try {
-      console.log('AuthService: Making registration request to /auth/register');
-      console.log('AuthService: Request data:', userData);
-      const response = await api.post<AuthResponse>('/auth/register/', userData);
-      console.log('AuthService: Registration response received:', response.data);
-      const { access_token, refresh_token, user } = response.data;
+      // Prepare payload with all necessary fields
+      const payload = {
+        email: userData.email,
+        password: userData.password,
+        name: userData.name,
+        role: userData.role,
+        phone: userData.phone,
+        location: userData.location,
+        ...(userData.role === 'employer' && { company: userData.company }),
+        ...(userData.role === 'jobseeker' && {
+          skills: userData.skills || [],
+          experience_years: userData.experience_years,
+          preferred_job_types: userData.preferred_job_types || [],
+          preferred_locations: userData.preferred_locations || [],
+          salary_expectations: userData.salary_expectations,
+        }),
+      };
+
+      const response = await api.post('/auth/register/', payload);
       
-      localStorage.setItem('skillglide-access-token', access_token);
-      localStorage.setItem('skillglide-refresh-token', refresh_token);
-      localStorage.setItem('skillglide-user', JSON.stringify(user));
+      // Store user data and token
+      localStorage.setItem('skillglide-user', JSON.stringify(response.data.user));
+      localStorage.setItem('skillglide-access-token', response.data.access_token);
       
       return response.data;
     } catch (error: any) {
-      console.error('AuthService: Registration error:', error);
-      console.error('AuthService: Error response:', error.response);
       const errorMessage = error.response?.data?.detail || 'Registration failed. Please try again.';
       throw new Error(errorMessage);
     }
@@ -93,6 +110,18 @@ class AuthService {
 
   isAuthenticated(): boolean {
     return !!this.getAccessToken();
+  }
+
+  // Helper method to check if user is an employer
+  isEmployer(): boolean {
+    const user = this.getCurrentUser();
+    return user?.role === 'employer';
+  }
+
+  // Helper method to check if user is a job seeker
+  isJobSeeker(): boolean {
+    const user = this.getCurrentUser();
+    return user?.role === 'jobseeker';
   }
 }
 

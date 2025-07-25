@@ -8,6 +8,9 @@ from app.schemas.mongodb_schemas import (
     MongoDBJobApplication, JobApplicationRequest
 )
 import logging
+from app.db.mongodb import get_jobs_collection, get_job_applications_collection as get_applications_collection
+from app.api.deps import get_current_user
+from app.schemas.mongodb_schemas import MongoDBUser as User
 
 router = APIRouter()
 
@@ -45,7 +48,7 @@ async def create_job(job_data: dict):
             "benefits": job_data.get("benefits", []),
             "location": job_data.get("location", ""),
             "job_type": job_data.get("job_type", "full_time"),
-            "work_mode": job_data.get("work_mode", "on_site"),
+            "work_mode": job_data.get("work_mode", "on_site").replace("onsite", "on_site"),
             # Accept ANY salary values (including 0, negative, or no salary)
             "salary_min": job_data.get("salary_min"),
             "salary_max": job_data.get("salary_max"),
@@ -97,7 +100,16 @@ async def list_jobs(
             if "job_type" in job and job["job_type"]:
                 job["job_type"] = job["job_type"].replace("-", "_")
             if "work_mode" in job and job["work_mode"]:
-                job["work_mode"] = job["work_mode"].replace("-", "_")
+                # Fix work_mode values to match enum
+                work_mode = job["work_mode"]
+                if work_mode == "onsite":
+                    job["work_mode"] = "on_site"
+                elif work_mode == "remote":
+                    job["work_mode"] = "remote"
+                elif work_mode == "hybrid":
+                    job["work_mode"] = "hybrid"
+                else:
+                    job["work_mode"] = "on_site"  # Default fallback
             jobs.append(MongoDBJob(**job))
         return jobs
     except Exception as e:
@@ -168,10 +180,29 @@ async def update_job(
 @router.delete("/{job_id}")
 async def delete_job(
     job_id: str,
+    current_user: User = Depends(get_current_user),
     jobs_collection = Depends(get_jobs_db)
 ):
-    """Delete a job"""
+    """Delete a job (employers only)"""
+    if current_user.role != "employer":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only employers can delete job postings"
+        )
+    
     try:
+        # Check if job exists and belongs to the user
+        job = await jobs_collection.find_one({"_id": ObjectId(job_id)})
+        if not job:
+            raise HTTPException(status_code=404, detail="Job not found")
+        
+        # Check if the job belongs to the current user
+        if job.get("employer_id") != str(current_user.id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You can only delete your own job postings"
+            )
+        
         result = await jobs_collection.delete_one({"_id": ObjectId(job_id)})
         if result.deleted_count == 0:
             raise HTTPException(status_code=404, detail="Job not found")

@@ -1,14 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Users, Briefcase, Eye, TrendingUp, Calendar, MapPin, DollarSign, Clock, Star, BarChart3, PieChart, Activity } from 'lucide-react';
+import { Plus, Users, Briefcase, Eye, TrendingUp, Calendar, MapPin, DollarSign, Clock, Star, BarChart3, PieChart, Activity, RefreshCw, Trash2 } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { LoadingSpinner } from '../common/LoadingSpinner';
+import { ConfirmDialog } from '../common/ConfirmDialog';
 import { JobPostingBuilder } from './JobPostingBuilder';
 import { jobService } from '../../services/jobService';
 import { JobCard } from '../jobs/JobCard';
+import { useToast } from '../common/Toast';
 
 interface EmployerDashboardProps {
   onNavigate: (view: 'dashboard' | 'post-job' | 'jobs' | 'profile') => void;
@@ -17,15 +19,23 @@ interface EmployerDashboardProps {
 export const EmployerDashboard: React.FC<EmployerDashboardProps> = ({ onNavigate }) => {
   const { user } = useAuth();
   const { theme } = useTheme();
+  const { success, error } = useToast();
   const [loading, setLoading] = React.useState(false);
   const [jobs, setJobs] = useState<any[]>([]);
   const [showJobBuilder, setShowJobBuilder] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [deletingJobId, setDeletingJobId] = useState<string | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [jobToDelete, setJobToDelete] = useState<{ id: string; title: string } | null>(null);
+
+  // Remove the static stats array and make it dynamic
+  const activeJobsCount = jobs.length;
 
   const stats = [
     {
       title: 'Active Jobs',
-      value: '0',
-      change: '0 this month',
+      value: activeJobsCount.toString(),
+      change: `${activeJobsCount} posted`,
       icon: <Briefcase className="w-6 h-6" />,
       color: 'from-blue-500 to-cyan-500',
       trend: 'neutral'
@@ -71,11 +81,25 @@ export const EmployerDashboard: React.FC<EmployerDashboardProps> = ({ onNavigate
   };
 
   const fetchJobs = async () => {
+    setLoading(true);
     try {
-      const allJobs = await jobService.getJobs();
-      setJobs(allJobs.filter(job => job.is_active));
+      console.log('Fetching employer jobs...');
+      const allJobs = await jobService.getEmployerJobs();
+      console.log('All jobs received:', allJobs);
+      
+      // Filter by published status if available, otherwise show all
+      const publishedJobs = allJobs.filter(job => 
+        !job.status || job.status === 'published' || job.status === 'active'
+      );
+      
+      console.log('Published jobs:', publishedJobs);
+      setJobs(publishedJobs);
+      setLastUpdated(new Date());
     } catch (e) {
-      // Optionally handle error
+      console.error('Error fetching employer jobs:', e);
+      setJobs([]);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -86,6 +110,37 @@ export const EmployerDashboard: React.FC<EmployerDashboardProps> = ({ onNavigate
   const handleJobPosted = (newJob: any) => {
     setShowJobBuilder(false);
     fetchJobs();
+  };
+
+  const handleDeleteJob = (jobId: string, jobTitle: string) => {
+    setJobToDelete({ id: jobId, title: jobTitle });
+    setShowDeleteDialog(true);
+  };
+
+  const confirmDeleteJob = async () => {
+    if (!jobToDelete) return;
+
+    setDeletingJobId(jobToDelete.id);
+    setShowDeleteDialog(false);
+    
+    try {
+      await jobService.deleteJob(jobToDelete.id);
+      console.log('Job deleted successfully');
+      // Refresh the job list
+      await fetchJobs();
+      success('Job deleted successfully!');
+    } catch (err: any) {
+      console.error('Error deleting job:', err);
+      error('Failed to delete job. Please try again.');
+    } finally {
+      setDeletingJobId(null);
+      setJobToDelete(null);
+    }
+  };
+
+  const cancelDeleteJob = () => {
+    setShowDeleteDialog(false);
+    setJobToDelete(null);
   };
 
   if (loading) {
@@ -166,32 +221,124 @@ export const EmployerDashboard: React.FC<EmployerDashboardProps> = ({ onNavigate
         <div className="lg:col-span-2">
           <Card>
             <div className="flex items-center justify-between mb-6">
-              <h2 className={`text-xl font-bold ${
-                theme === 'light' ? 'text-gray-900' : 'text-white'
-              }`}>
-                Your Job Postings
-              </h2>
-              <Button variant="outline" size="sm">
-                View All
-              </Button>
+              <div>
+                <h2 className={`text-xl font-bold ${
+                  theme === 'light' ? 'text-gray-900' : 'text-white'
+                }`}>
+                  Your Job Postings ({jobs.length})
+                </h2>
+                {lastUpdated && (
+                  <p className={`text-sm ${
+                    theme === 'light' ? 'text-gray-500' : 'text-gray-400'
+                  }`}>
+                    Last updated: {lastUpdated.toLocaleTimeString()}
+                  </p>
+                )}
+              </div>
+              <div className="flex space-x-2">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={fetchJobs}
+                  disabled={loading}
+                  icon={loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : undefined}
+                >
+                  {loading ? 'Refreshing...' : 'Refresh'}
+                </Button>
+                <Button variant="outline" size="sm">
+                  View All
+                </Button>
+              </div>
             </div>
-            
-            <div className="text-center py-12 border border-dashed border-gray-300 dark:border-gray-700 rounded-lg">
-              <Briefcase className="w-12 h-12 mx-auto text-gray-400 mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                No job postings yet
-              </h3>
-              <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto">
-                Start attracting top talent by posting your first job opening.
-              </p>
-              <Button
-                variant="primary"
-                onClick={() => onNavigate('post-job')}
-                icon={<Plus className="w-4 h-4" />}
-              >
-                Post Your First Job
-              </Button>
-            </div>
+            {jobs.length === 0 ? (
+              <div className="text-center py-12 border border-dashed border-gray-300 dark:border-gray-700 rounded-lg">
+                <Briefcase className="w-12 h-12 mx-auto text-gray-400 mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                  No job postings yet
+                </h3>
+                <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto">
+                  Start attracting top talent by posting your first job opening.
+                </p>
+                <Button
+                  variant="primary"
+                  onClick={() => onNavigate('post-job')}
+                  icon={<Plus className="w-4 h-4" />}
+                >
+                  Post Your First Job
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {jobs.map(job => (
+                  <div key={job._id || job.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-md transition-shadow">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                            {job.title}
+                          </h3>
+                          <Badge variant="success" className="text-xs">
+                            {job.status || 'Published'}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400 mb-2">
+                          <div className="flex items-center space-x-1">
+                            <MapPin className="w-4 h-4" />
+                            <span>{job.location}</span>
+                          </div>
+                          <div className="flex items-center space-x-1">
+                            <Clock className="w-4 h-4" />
+                            <span>{job.job_type?.replace('_', ' ')}</span>
+                          </div>
+                          <div className="flex items-center space-x-1">
+                            <DollarSign className="w-4 h-4" />
+                            <span>
+                              {job.salary_min && job.salary_max 
+                                ? `$${job.salary_min.toLocaleString()} - $${job.salary_max.toLocaleString()}`
+                                : 'Salary not disclosed'
+                              }
+                            </span>
+                          </div>
+                        </div>
+                        <p className="text-gray-600 dark:text-gray-400 text-sm line-clamp-2">
+                          {job.description}
+                        </p>
+                        <div className="flex items-center space-x-2 mt-3">
+                          <span className="text-xs text-gray-500">
+                            Posted: {job.created_at ? new Date(job.created_at).toLocaleDateString() : 'Recently'}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            • {job.applications_count || 0} applications
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex flex-col space-y-2 ml-4">
+                        <Button size="sm" variant="outline">
+                          Edit
+                        </Button>
+                        <Button size="sm" variant="outline">
+                          View Applications
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                          onClick={() => handleDeleteJob(job._id || job.id, job.title)}
+                          disabled={deletingJobId === (job._id || job.id)}
+                        >
+                          {deletingJobId === (job._id || job.id) ? (
+                            <LoadingSpinner size="sm" />
+                          ) : (
+                            <Trash2 className="w-4 h-4" />
+                          )}
+                          {deletingJobId === (job._id || job.id) ? 'Deleting...' : 'Delete'}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </Card>
         </div>
 
@@ -338,9 +485,10 @@ export const EmployerDashboard: React.FC<EmployerDashboardProps> = ({ onNavigate
         <JobPostingBuilder onBack={() => setShowJobBuilder(false)} onJobPosted={handleJobPosted} />
       )}
 
+      {/* Active Jobs Section (bottom of dashboard) */}
       {!showJobBuilder && (
         <Card>
-          <h2 className="text-xl font-bold mb-4">Active Jobs</h2>
+          <h2 className="text-xl font-bold mb-4">Active Jobs ({activeJobsCount})</h2>
           {jobs.length === 0 ? (
             <p>No active jobs yet. Click 'Post New Job' to add one.</p>
           ) : (
@@ -352,6 +500,19 @@ export const EmployerDashboard: React.FC<EmployerDashboardProps> = ({ onNavigate
           )}
         </Card>
       )}
+
+      {/* Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={showDeleteDialog}
+        onClose={cancelDeleteJob}
+        onConfirm={confirmDeleteJob}
+        title="Delete Job"
+        message={`Are you sure you want to delete "${jobToDelete?.title}"? This action cannot be undone and will permanently remove the job posting.`}
+        confirmText="Delete Job"
+        cancelText="Cancel"
+        variant="danger"
+        loading={deletingJobId !== null}
+      />
     </div>
   );
 };

@@ -156,9 +156,9 @@ export const ProfileCreation: React.FC<ProfileCreationProps> = ({ onComplete, on
         
         case 'professional':
           if (profileData.userType === 'jobseeker') {
-            if (!profileData.currentRole?.trim()) newErrors.currentRole = 'Current role is required';
+            // Removed required validation for currentRole and skills
             if (!profileData.experience) newErrors.experience = 'Experience level is required';
-            if (!profileData.skills || profileData.skills.length === 0) newErrors.skills = 'At least one skill is required';
+            // if (!profileData.skills || profileData.skills.length === 0) newErrors.skills = 'At least one skill is required';
           }
           break;
           
@@ -234,10 +234,14 @@ export const ProfileCreation: React.FC<ProfileCreationProps> = ({ onComplete, on
     updateProfileData(field, newArray);
   };
 
+  function generateUserId() {
+    return 'user_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
+  }
+
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
-      // Log the payload for debugging
+      // Prepare the registration payload
       const payload = {
         name: `${profileData.firstName} ${profileData.lastName}`,
         email: profileData.email,
@@ -245,14 +249,27 @@ export const ProfileCreation: React.FC<ProfileCreationProps> = ({ onComplete, on
         role: profileData.userType,
         phone: profileData.phone,
         location: profileData.location,
-        ...(profileData.userType === 'employer' && { company: profileData.companyName }),
+        ...(profileData.userType === 'employer' && { 
+          company: profileData.companyName 
+        }),
+        ...(profileData.userType === 'jobseeker' && {
+          skills: profileData.skills || [],
+          experience_years: profileData.experience ? parseInt(profileData.experience) : undefined,
+          preferred_job_types: profileData.jobType || [],
+          preferred_locations: [profileData.location],
+          salary_expectations: profileData.expectedSalary ? {
+            min: parseInt(profileData.expectedSalary) * 1000,
+            max: parseInt(profileData.expectedSalary) * 1500,
+            currency: 'USD'
+          } : undefined,
+        }),
       };
+      
       console.log('Registration payload:', payload);
       console.log('About to call register function...');
 
-      const result = await register(payload);
-      console.log('Registration successful:', result);
-      
+      await register(payload);
+      console.log('Registration complete. Check backend logs for user object and role.');
       // Wait a moment to ensure state is updated
       await new Promise(resolve => setTimeout(resolve, 100));
       
@@ -654,7 +671,7 @@ export const ProfileCreation: React.FC<ProfileCreationProps> = ({ onComplete, on
             error={errors.currentRole}
             icon={<Briefcase className="w-4 h-4" />}
             fullWidth
-            required
+            // required prop removed to make it optional
           />
           
           <div>

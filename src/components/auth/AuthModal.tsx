@@ -102,7 +102,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
     try {
       if (mode === 'login') {
+        console.log('🔐 Starting login process...', { email: formData.email, role: userType });
         await login(formData.email, formData.password, userType);
+        console.log('✅ Login successful, closing modal and triggering routing...');
+        // After successful login, trigger the proper routing
+        onClose();
+        // Wait a moment for the auth state to update, then trigger routing
+        setTimeout(() => {
+          console.log('🔄 Triggering onGetStarted for routing...');
+          onGetStarted?.();
+        }, 100);
       } else {
         await register({
           name: formData.name,
@@ -111,11 +120,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           role: userType,
           ...(userType === 'employer' && { company: formData.company }),
         });
+        // After successful registration, trigger the proper routing
+        onClose();
+        // Wait a moment for the auth state to update, then trigger routing
+        setTimeout(() => {
+          onGetStarted?.();
+        }, 100);
       }
-      onClose();
     } catch (error: any) {
       console.error('Authentication error:', error);
-      // Always show a user-friendly message for login failures
       setErrors({ 
         general: mode === 'login' 
           ? 'Invalid email address or password' 
