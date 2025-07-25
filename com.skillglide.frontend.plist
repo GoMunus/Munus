@@ -9,9 +9,6 @@
         <string>/usr/local/bin/npm</string>
         <string>run</string>
         <string>dev</string>
-        <string>--</string>
-        <string>--port</string>
-        <string>5174</string>
     </array>
     <key>WorkingDirectory</key>
     <string>/Users/shaansoni/Jobify-1</string>

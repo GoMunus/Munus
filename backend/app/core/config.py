@@ -11,15 +11,14 @@ class Settings(BaseSettings):
     DESCRIPTION: str = "AI-Powered Job Portal & Resume Builder API"
     
     # Security
-    SECRET_KEY: str
+    SECRET_KEY: str = "your-super-secret-key-change-in-production-skillglide-2024"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     
     # Database
-    DATABASE_URL: str
-    ASYNC_DATABASE_URL: str
-
+    DATABASE_URL: str = "sqlite:///./test.db"
+    ASYNC_DATABASE_URL: str = "sqlite+aiosqlite:///./test.db"
     # CORS
     BACKEND_CORS_ORIGINS: List[AnyHttpUrl] = []
 
@@ -32,9 +31,9 @@ class Settings(BaseSettings):
         raise ValueError(v)
 
     # Email Configuration
-    MAIL_USERNAME: str
-    MAIL_PASSWORD: str
-    MAIL_FROM: str
+    MAIL_USERNAME: str = "noreply@skillglide.com"
+    MAIL_PASSWORD: str = "dummy-password"
+    MAIL_FROM: str = "noreply@skillglide.com"
     MAIL_PORT: int = 587
     MAIL_SERVER: str = "smtp.gmail.com"
     MAIL_FROM_NAME: str = "SkillGlide"

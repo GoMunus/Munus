@@ -14,6 +14,7 @@ import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { LoadingSpinner } from './components/common/LoadingSpinner';
 import { ToastContainer, useToast } from './components/common/Toast';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { ConnectionStatus } from './components/common/ConnectionStatus';
 import { AuthProvider } from './contexts/AuthContext';
 import { JobProvider } from './contexts/JobContext';
 import { useAuth } from './contexts/AuthContext';
@@ -296,6 +297,7 @@ function App() {
       <ThemeProvider>
         <AuthProvider>
           <JobProvider>
+            <ConnectionStatus />
             <AppContent />
           </JobProvider>
         </AuthProvider>

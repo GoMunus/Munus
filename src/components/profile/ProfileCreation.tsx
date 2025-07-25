@@ -277,18 +277,16 @@ export const ProfileCreation: React.FC<ProfileCreationProps> = ({ onComplete, on
       onComplete();
     } catch (error: any) {
       console.error('Registration error details:', error);
-      console.error('Error message:', error.message);
-      console.error('Error response:', error.response);
-      console.error('Error status:', error.response?.status);
-      console.error('Error data:', error.response?.data);
       
       // Handle specific error cases
-      if (error.message.includes('Email already registered')) {
+      if (error.message?.includes('Cannot connect to server')) {
+        setErrors({ general: 'Cannot connect to server. Please make sure the backend is running and try again.' });
+      } else if (error.message?.includes('Email already registered')) {
         setErrors({ email: 'This email is already registered. Please use a different email address.' });
         // Clear the email field to make it easy to try again
         setProfileData(prev => ({ ...prev, email: '' }));
       } else {
-        setErrors({ general: `Failed to create profile: ${error.message}` });
+        setErrors({ general: error.message || 'Failed to create profile. Please check your connection and try again.' });
       }
     } finally {
       setIsSubmitting(false);
