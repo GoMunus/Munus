@@ -7,48 +7,91 @@
 </head>
 <body>
     <h1>Frontend-Backend Connection Test</h1>
-    <button onclick="testJobCreation()">Test Job Creation</button>
-    <div id="result"></div>
+    
+    <div id="user-info">
+        <h2>User Information</h2>
+        <div id="user-details"></div>
+    </div>
+    
+    <div id="test-results">
+        <h2>Test Results</h2>
+        <div id="results"></div>
+    </div>
 
     <script>
-        async function testJobCreation() {
-            const resultDiv = document.getElementById('result');
-            resultDiv.innerHTML = 'Testing...';
+        async function testConnection() {
+            const resultsDiv = document.getElementById('results');
+            const userDetailsDiv = document.getElementById('user-details');
+            
+            // Check localStorage
+            const userStr = localStorage.getItem('skillglide-user');
+            const token = localStorage.getItem('skillglide-access-token');
+            
+            resultsDiv.innerHTML = '<p>Testing connection...</p>';
+            
+            // Display user info
+            if (userStr) {
+                const user = JSON.parse(userStr);
+                userDetailsDiv.innerHTML = `
+                    <p><strong>Name:</strong> ${user.name}</p>
+                    <p><strong>Email:</strong> ${user.email}</p>
+                    <p><strong>Role:</strong> ${user.role}</p>
+                    <p><strong>Token exists:</strong> ${!!token}</p>
+                `;
+            } else {
+                userDetailsDiv.innerHTML = '<p style="color: red;">No user found in localStorage</p>';
+                resultsDiv.innerHTML = '<p style="color: red;">Please log in as an employer first</p>';
+                return;
+            }
+            
+            if (!token) {
+                resultsDiv.innerHTML = '<p style="color: red;">No access token found</p>';
+                return;
+            }
             
             try {
-                const response = await fetch('http://localhost:8000/api/v1/jobs/', {
-                    method: 'POST',
+                // Test employer jobs endpoint
+                const response = await fetch('http://localhost:8000/api/v1/jobs/employer-jobs', {
                     headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        title: 'Test Job from Frontend',
-                        description: 'Testing frontend-backend connection',
-                        location: 'Remote',
-                        job_type: 'full_time',
-                        work_mode: 'remote',
-                        experience_level: '3-5',
-                        requirements: ['JavaScript'],
-                        responsibilities: ['Code'],
-                        benefits: ['Health'],
-                        required_skills: ['JavaScript'],
-                        salary_min: 50000,
-                        salary_max: 100000,
-                        salary_currency: 'USD'
-                    })
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
                 });
                 
-                const data = await response.json();
-                
                 if (response.ok) {
-                    resultDiv.innerHTML = `<h3>✅ Success!</h3><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                    const jobs = await response.json();
+                    resultsDiv.innerHTML = `
+                        <p style="color: green;">✅ Connection successful!</p>
+                        <p><strong>Status:</strong> ${response.status}</p>
+                        <p><strong>Jobs found:</strong> ${jobs.length}</p>
+                        <h3>Jobs:</h3>
+                        <ul>
+                            ${jobs.map(job => `
+                                <li>
+                                    <strong>${job.title}</strong> - ${job.location}<br>
+                                    <small>Employer: ${job.employer_name} | Created: ${job.created_at}</small>
+                                </li>
+                            `).join('')}
+                        </ul>
+                    `;
                 } else {
-                    resultDiv.innerHTML = `<h3>❌ Error: ${response.status}</h3><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                    const error = await response.text();
+                    resultsDiv.innerHTML = `
+                        <p style="color: red;">❌ Connection failed</p>
+                        <p><strong>Status:</strong> ${response.status}</p>
+                        <p><strong>Error:</strong> ${error}</p>
+                    `;
                 }
             } catch (error) {
-                resultDiv.innerHTML = `<h3>❌ Network Error</h3><pre>${error.message}</pre>`;
+                resultsDiv.innerHTML = `
+                    <p style="color: red;">❌ Connection error</p>
+                    <p><strong>Error:</strong> ${error.message}</p>
+                `;
             }
         }
+        
+        // Run test when page loads
+        window.onload = testConnection;
     </script>
 </body>
 </html> 

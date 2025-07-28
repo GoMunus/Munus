@@ -76,19 +76,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const register = async (userData: RegisterRequest) => {
+    console.log('📝 AuthContext register called with:', userData);
     setLoading(true);
     try {
       const response = await authService.register(userData);
+      console.log('✅ Registration response received:', response);
+      
+      // Set user immediately
       setUser(response.user);
+      console.log('👤 User state set to:', response.user);
+      
       // Force a refresh to ensure the state is properly updated
       setTimeout(() => {
         const storedUser = authService.getCurrentUser();
+        console.log('🔄 Refreshing user state from localStorage:', storedUser);
         if (storedUser) {
           setUser(storedUser);
+          console.log('✅ User state refreshed from localStorage');
         }
-      }, 100);
+      }, 200);
     } catch (error) {
-      console.error('Registration error:', error);
+      console.error('❌ Registration error:', error);
       throw error;
     } finally {
       setLoading(false);

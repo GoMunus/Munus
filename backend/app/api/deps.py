@@ -15,9 +15,9 @@ async def get_current_user(
 ) -> User:
     """Get current authenticated user"""
     token = credentials.credentials
-    user_id = verify_token(token)
+    user_email = verify_token(token)
     
-    if user_id is None:
+    if user_email is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication credentials",
@@ -27,16 +27,44 @@ async def get_current_user(
     # Get users collection
     users_collection = get_users_collection()
     
-    # Find user by ID
-    user_doc = await users_collection.find_one({"_id": ObjectId(user_id)})
+    # Find user by email (since token contains email as subject)
+    user_doc = await users_collection.find_one({"email": user_email})
     if user_doc is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
         )
     
-    # Convert to User schema
-    user = User(**user_doc)
+    # Convert ObjectId to string for the response
+    user_doc["_id"] = str(user_doc["_id"])
+    
+    # Convert to User schema - handle missing fields
+    user_data = user_doc.copy()
+    # Ensure required fields exist
+    if 'user_id' not in user_data:
+        user_data['user_id'] = None
+    if 'is_active' not in user_data:
+        user_data['is_active'] = True
+    if 'skills' not in user_data:
+        user_data['skills'] = []
+    if 'preferred_job_types' not in user_data:
+        user_data['preferred_job_types'] = []
+    if 'preferred_locations' not in user_data:
+        user_data['preferred_locations'] = []
+    if 'jobs_applied' not in user_data:
+        user_data['jobs_applied'] = 0
+    if 'jobs_posted' not in user_data:
+        user_data['jobs_posted'] = 0
+    if 'profile_views' not in user_data:
+        user_data['profile_views'] = 0
+    if 'job_alerts' not in user_data:
+        user_data['job_alerts'] = True
+    if 'email_notifications' not in user_data:
+        user_data['email_notifications'] = True
+    if 'push_notifications' not in user_data:
+        user_data['push_notifications'] = True
+    
+    user = User(**user_data)
     
     if not user.is_active:
         raise HTTPException(
@@ -93,21 +121,49 @@ async def get_optional_current_user(
     
     try:
         token = credentials.credentials
-        user_id = verify_token(token)
+        user_email = verify_token(token)
         
-        if user_id is None:
+        if user_email is None:
             return None
         
         # Get users collection
         users_collection = get_users_collection()
         
-        # Find user by ID
-        user_doc = await users_collection.find_one({"_id": ObjectId(user_id)})
+        # Find user by email (since token contains email as subject)
+        user_doc = await users_collection.find_one({"email": user_email})
         if user_doc is None:
             return None
         
-        # Convert to User schema
-        user = User(**user_doc)
+        # Convert ObjectId to string for the response
+        user_doc["_id"] = str(user_doc["_id"])
+        
+        # Convert to User schema - handle missing fields
+        user_data = user_doc.copy()
+        # Ensure required fields exist
+        if 'user_id' not in user_data:
+            user_data['user_id'] = None
+        if 'is_active' not in user_data:
+            user_data['is_active'] = True
+        if 'skills' not in user_data:
+            user_data['skills'] = []
+        if 'preferred_job_types' not in user_data:
+            user_data['preferred_job_types'] = []
+        if 'preferred_locations' not in user_data:
+            user_data['preferred_locations'] = []
+        if 'jobs_applied' not in user_data:
+            user_data['jobs_applied'] = 0
+        if 'jobs_posted' not in user_data:
+            user_data['jobs_posted'] = 0
+        if 'profile_views' not in user_data:
+            user_data['profile_views'] = 0
+        if 'job_alerts' not in user_data:
+            user_data['job_alerts'] = True
+        if 'email_notifications' not in user_data:
+            user_data['email_notifications'] = True
+        if 'push_notifications' not in user_data:
+            user_data['push_notifications'] = True
+        
+        user = User(**user_data)
         return user if user.is_active else None
     except:
         return None

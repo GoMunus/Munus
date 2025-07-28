@@ -102,28 +102,31 @@ export const ProfileCreation: React.FC<ProfileCreationProps> = ({ onComplete, on
 
   const steps = profileData.userType === 'jobseeker' ? jobSeekerSteps : employerSteps;
 
-  // Reset component state when mounted
+  // Initialize component state when mounted (but don't reset if already has data)
   useEffect(() => {
-    setCurrentStep(0);
-    setProfileData({
-      userType: 'jobseeker',
-      firstName: '',
-      lastName: '',
-      email: '',
-      phone: '',
-      location: '',
-      skills: [],
-      jobType: [],
-      workMode: [],
-      password: '',
-    });
-    setErrors({});
-    setIsSubmitting(false);
-    setOtpSent(false);
-    setOtpVerified(false);
-    setOtp('');
-    setOtpError('');
-    setOtpLoading(false);
+    // Only reset if we don't have any data yet
+    if (!profileData.firstName && !profileData.email) {
+      setCurrentStep(0);
+      setProfileData({
+        userType: 'jobseeker',
+        firstName: '',
+        lastName: '',
+        email: '',
+        phone: '',
+        location: '',
+        skills: [],
+        jobType: [],
+        workMode: [],
+        password: '',
+      });
+      setErrors({});
+      setIsSubmitting(false);
+      setOtpSent(false);
+      setOtpVerified(false);
+      setOtp('');
+      setOtpError('');
+      setOtpLoading(false);
+    }
   }, []);
 
   const updateProfileData = (field: keyof ProfileData, value: any) => {
@@ -239,7 +242,10 @@ export const ProfileCreation: React.FC<ProfileCreationProps> = ({ onComplete, on
   }
 
   const handleSubmit = async () => {
+    console.log('🚀 Starting registration process...');
     setIsSubmitting(true);
+    setErrors({}); // Clear any previous errors
+    
     try {
       // Prepare the registration payload
       const payload = {
@@ -265,18 +271,19 @@ export const ProfileCreation: React.FC<ProfileCreationProps> = ({ onComplete, on
         }),
       };
       
-      console.log('Registration payload:', payload);
-      console.log('About to call register function...');
+      console.log('📋 Registration payload:', payload);
+      console.log('📞 About to call register function...');
 
-      await register(payload);
-      console.log('Registration complete. Check backend logs for user object and role.');
-      // Wait a moment to ensure state is updated
-      await new Promise(resolve => setTimeout(resolve, 100));
+      const result = await register(payload);
+      console.log('✅ Registration successful:', result);
       
-      console.log('Calling onComplete...');
+      // Wait a moment to ensure AuthContext state is updated
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      console.log('🎯 Calling onComplete to redirect...');
       onComplete();
     } catch (error: any) {
-      console.error('Registration error details:', error);
+      console.error('❌ Registration error details:', error);
       
       // Handle specific error cases
       if (error.message?.includes('Cannot connect to server')) {

@@ -149,12 +149,6 @@ async def root():
         "health": "/health"
     }
 
-<<<<<<< HEAD
-=======
-
-# Include API router
-app.include_router(api_router, prefix=settings.API_V1_STR)
-
 # Create uploads directory if it doesn't exist
 import os
 os.makedirs("uploads", exist_ok=True)
@@ -163,59 +157,12 @@ os.makedirs("uploads/resumes", exist_ok=True)
 os.makedirs("uploads/videos", exist_ok=True)
 os.makedirs("uploads/audio", exist_ok=True)
 
-# Serve uploaded files
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
-
-
-# Twilio setup
-account_sid = os.getenv("TWILIO_ACCOUNT_SID")
-auth_token = os.getenv("TWILIO_AUTH_TOKEN")
-verify_sid = os.getenv("TWILIO_VERIFY_SID")
-client = Client(account_sid, auth_token)
-
-# Input models
-class PhoneNumber(BaseModel):
-    phone: str
-
-class OTPCheck(BaseModel):
-    phone: str
-    code: str
-
-# Send OTP
-@app.post("/send-otp/")
-def send_otp(data: PhoneNumber):
-    try:
-        verification = client.verify.v2.services(verify_sid).verifications.create(
-            to=data.phone,
-            channel="sms"
-        )
-        return {"status": verification.status}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-# Verify OTP
-@app.post("/verify-otp/")
-def verify_otp(data: OTPCheck):
-    try:
-        verification_check = client.verify.v2.services(verify_sid).verification_checks.create(
-            to=data.phone,
-            code=data.code
-        )
-        if verification_check.status == "approved":
-            return {"verified": True}
-        else:
-            return {"verified": False}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
 # Serve frontend static files
 frontend_dist = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../dist'))
 if os.path.exists(frontend_dist):
     app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="static")
 
 
->>>>>>> 2f266c2d8a502a889ff458ce807cbe6d2282b928
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

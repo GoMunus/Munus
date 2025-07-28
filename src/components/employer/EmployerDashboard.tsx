@@ -1,36 +1,189 @@
-import React, { useEffect, useState } from 'react';
-import { Plus, Users, Briefcase, Eye, TrendingUp, Calendar, MapPin, DollarSign, Clock, Star, BarChart3, PieChart, Activity, RefreshCw, Trash2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
-import { useAuth } from '../../contexts/AuthContext';
-import { useTheme } from '../../contexts/ThemeContext';
 import { LoadingSpinner } from '../common/LoadingSpinner';
 import { ConfirmDialog } from '../common/ConfirmDialog';
-import { JobPostingBuilder } from './JobPostingBuilder';
+import { ToastContainer, useToast } from '../common/Toast';
+import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import { jobService } from '../../services/jobService';
-import { JobCard } from '../jobs/JobCard';
-import { useToast } from '../common/Toast';
+import { 
+  Users, 
+  Eye, 
+  Trash2, 
+  Calendar, 
+  MapPin, 
+  DollarSign, 
+  AlertTriangle, 
+  Briefcase, 
+  Plus,
+  TrendingUp,
+  Star,
+  BarChart3,
+  PieChart,
+  Activity,
+  Clock,
+  RefreshCw,
+  Building,
+  Target,
+  Zap,
+  Search,
+  Bookmark,
+  Send,
+  CheckCircle,
+  AlertCircle,
+  ChevronRight,
+  ChevronLeft
+} from 'lucide-react';
+import type { JobResponse } from '../../services/jobService';
+
+interface Application {
+  _id: string;
+  applicant_name: string;
+  applicant_email: string;
+  cover_letter: string;
+  status: string;
+  created_at: string;
+}
+
+interface DeleteJobDialog {
+  isOpen: boolean;
+  jobId: string | null;
+  jobTitle: string;
+  applicationsCount: number;
+}
 
 interface EmployerDashboardProps {
-  onNavigate: (view: 'dashboard' | 'post-job' | 'jobs' | 'profile') => void;
+  onNavigate?: (view: 'home' | 'jobs' | 'resume' | 'profile' | 'create-profile' | 'dashboard' | 'post-job' | 'candidates' | 'faqs' | 'contact') => void;
 }
 
 export const EmployerDashboard: React.FC<EmployerDashboardProps> = ({ onNavigate }) => {
+  const [jobs, setJobs] = useState<JobResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedJob, setSelectedJob] = useState<string | null>(null);
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [loadingApplications, setLoadingApplications] = useState(false);
+  const [deleteDialog, setDeleteDialog] = useState<DeleteJobDialog>({
+    isOpen: false,
+    jobId: null,
+    jobTitle: '',
+    applicationsCount: 0
+  });
+  const [deletingJob, setDeletingJob] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const { user } = useAuth();
   const { theme } = useTheme();
-  const { success, error } = useToast();
-  const [loading, setLoading] = React.useState(false);
-  const [jobs, setJobs] = useState<any[]>([]);
-  const [showJobBuilder, setShowJobBuilder] = useState(false);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [deletingJobId, setDeletingJobId] = useState<string | null>(null);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [jobToDelete, setJobToDelete] = useState<{ id: string; title: string } | null>(null);
+  const { toasts, removeToast, success, error: showError } = useToast();
 
-  // Remove the static stats array and make it dynamic
+  const fetchJobs = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const jobsData = await jobService.getEmployerJobs();
+      setJobs(jobsData);
+      setLastUpdated(new Date());
+    } catch (err: any) {
+      console.error('Error fetching jobs:', err);
+      setError(err.message || 'Failed to fetch jobs');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchApplications = async (jobId: string) => {
+    try {
+      setLoadingApplications(true);
+      const apps = await jobService.getJobApplications(jobId);
+      setApplications(apps);
+      setSelectedJob(jobId);
+    } catch (err: any) {
+      console.error('Error fetching applications:', err);
+      setApplications([]);
+    } finally {
+      setLoadingApplications(false);
+    }
+  };
+
+  const handleJobPosted = () => {
+    fetchJobs();
+  };
+
+  const openDeleteDialog = (job: JobResponse) => {
+    setDeleteDialog({
+      isOpen: true,
+      jobId: job._id || job.id || '',
+      jobTitle: job.title,
+      applicationsCount: job.applications_count || 0
+    });
+  };
+
+  const closeDeleteDialog = () => {
+    setDeleteDialog({
+      isOpen: false,
+      jobId: null,
+      jobTitle: '',
+      applicationsCount: 0
+    });
+  };
+
+  const handleDeleteJob = async () => {
+    if (!deleteDialog.jobId) return;
+
+    try {
+      setDeletingJob(true);
+      await jobService.deleteJob(deleteDialog.jobId);
+      
+      // Close dialog and refresh jobs
+      closeDeleteDialog();
+      await fetchJobs();
+      
+      // Show success toast
+      success('Job Deleted Successfully', `"${deleteDialog.jobTitle}" has been permanently deleted.`);
+    } catch (err: any) {
+      console.error('Error deleting job:', err);
+      const errorMessage = err.message || 'Failed to delete job. Please try again.';
+      setError(errorMessage);
+      showError('Delete Failed', errorMessage);
+    } finally {
+      setDeletingJob(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchJobs();
+  }, []);
+
+  const formatSalary = (min?: number, max?: number) => {
+    if (!min && !max) return 'Not specified';
+    if (min && max) return `₹${min.toLocaleString()} - ₹${max.toLocaleString()}`;
+    if (min) return `₹${min.toLocaleString()}+`;
+    if (max) return `Up to ₹${max.toLocaleString()}`;
+    return 'Not specified';
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString();
+  };
+
+  const getDeleteMessage = () => {
+    const { jobTitle, applicationsCount } = deleteDialog;
+    
+    if (applicationsCount > 0) {
+      return `Are you sure you want to delete "${jobTitle}"? This job has ${applicationsCount} application${applicationsCount > 1 ? 's' : ''} and this action cannot be undone.`;
+    }
+    
+    return `Are you sure you want to delete "${jobTitle}"? This action cannot be undone.`;
+  };
+
+  // Calculate statistics
   const activeJobsCount = jobs.length;
+  const totalApplications = jobs.reduce((sum, job) => sum + (job.applications_count || 0), 0);
+  const profileViews = 0; // TODO: Implement profile views tracking
+  const hiredThisMonth = 0; // TODO: Implement hiring tracking
 
+  // Stats array for the beautiful cards
   const stats = [
     {
       title: 'Active Jobs',
@@ -42,15 +195,15 @@ export const EmployerDashboard: React.FC<EmployerDashboardProps> = ({ onNavigate
     },
     {
       title: 'Total Applications',
-      value: '0',
-      change: '0 this week',
+      value: totalApplications.toString(),
+      change: `${totalApplications} this week`,
       icon: <Users className="w-6 h-6" />,
       color: 'from-green-500 to-emerald-500',
       trend: 'neutral'
     },
     {
       title: 'Profile Views',
-      value: '0',
+      value: profileViews.toString(),
       change: '0% vs last month',
       icon: <Eye className="w-6 h-6" />,
       color: 'from-purple-500 to-pink-500',
@@ -58,7 +211,7 @@ export const EmployerDashboard: React.FC<EmployerDashboardProps> = ({ onNavigate
     },
     {
       title: 'Hired This Month',
-      value: '0',
+      value: hiredThisMonth.toString(),
       change: '0 pending offers',
       icon: <TrendingUp className="w-6 h-6" />,
       color: 'from-orange-500 to-red-500',
@@ -66,11 +219,8 @@ export const EmployerDashboard: React.FC<EmployerDashboardProps> = ({ onNavigate
     }
   ];
 
-  const recentJobs = [];
-  const recentApplications = [];
-
   const getStatusColor = (status: string) => {
-    switch (status) {
+    switch (status.toLowerCase()) {
       case 'active': return 'success';
       case 'paused': return 'warning';
       case 'new': return 'primary';
@@ -80,81 +230,20 @@ export const EmployerDashboard: React.FC<EmployerDashboardProps> = ({ onNavigate
     }
   };
 
-  const fetchJobs = async () => {
-    setLoading(true);
-    try {
-      console.log('Fetching employer jobs...');
-      const allJobs = await jobService.getEmployerJobs();
-      console.log('All jobs received:', allJobs);
-      
-      // Filter by published status if available, otherwise show all
-      const publishedJobs = allJobs.filter(job => 
-        !job.status || job.status === 'published' || job.status === 'active'
-      );
-      
-      console.log('Published jobs:', publishedJobs);
-      setJobs(publishedJobs);
-      setLastUpdated(new Date());
-    } catch (e) {
-      console.error('Error fetching employer jobs:', e);
-      setJobs([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchJobs();
-  }, []);
-
-  const handleJobPosted = (newJob: any) => {
-    setShowJobBuilder(false);
-    fetchJobs();
-  };
-
-  const handleDeleteJob = (jobId: string, jobTitle: string) => {
-    setJobToDelete({ id: jobId, title: jobTitle });
-    setShowDeleteDialog(true);
-  };
-
-  const confirmDeleteJob = async () => {
-    if (!jobToDelete) return;
-
-    setDeletingJobId(jobToDelete.id);
-    setShowDeleteDialog(false);
-    
-    try {
-      await jobService.deleteJob(jobToDelete.id);
-      console.log('Job deleted successfully');
-      // Refresh the job list
-      await fetchJobs();
-      success('Job deleted successfully!');
-    } catch (err: any) {
-      console.error('Error deleting job:', err);
-      error('Failed to delete job. Please try again.');
-    } finally {
-      setDeletingJobId(null);
-      setJobToDelete(null);
-    }
-  };
-
-  const cancelDeleteJob = () => {
-    setShowDeleteDialog(false);
-    setJobToDelete(null);
-  };
-
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex items-center justify-center min-h-[600px]">
-          <LoadingSpinner size="lg" text="Loading dashboard data..." />
-        </div>
+      <div className="flex items-center justify-center py-12">
+        <LoadingSpinner size="lg" text="Loading your dashboard..." />
       </div>
     );
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <>
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
+      <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 ${
+        theme === 'light' ? 'bg-light-pattern' : ''
+      }`}>
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center justify-between">
@@ -169,11 +258,19 @@ export const EmployerDashboard: React.FC<EmployerDashboardProps> = ({ onNavigate
             }`}>
               Here's what's happening with your hiring
             </p>
+              {/* Debug info */}
+              <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                <span>User ID: {user?.id}</span>
+                <span className="mx-2">•</span>
+                <span>Email: {user?.email}</span>
+                <span className="mx-2">•</span>
+                <span>Role: {user?.role}</span>
+              </div>
           </div>
           <Button
             variant="primary"
             size="lg"
-            onClick={() => onNavigate('post-job')}
+              onClick={() => onNavigate?.('post-job')}
             icon={<Plus className="w-5 h-5" />}
             className="shadow-lg hover-lift"
           >
@@ -181,6 +278,18 @@ export const EmployerDashboard: React.FC<EmployerDashboardProps> = ({ onNavigate
           </Button>
         </div>
       </div>
+
+        {error && (
+          <Card className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800">
+            <div className="flex items-start space-x-3">
+              <AlertTriangle className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-red-600 dark:text-red-400 font-medium">Error</p>
+                <p className="text-red-600 dark:text-red-400 text-sm">{error}</p>
+              </div>
+            </div>
+          </Card>
+        )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -261,7 +370,7 @@ export const EmployerDashboard: React.FC<EmployerDashboardProps> = ({ onNavigate
                 </p>
                 <Button
                   variant="primary"
-                  onClick={() => onNavigate('post-job')}
+                    onClick={() => onNavigate?.('post-job')}
                   icon={<Plus className="w-4 h-4" />}
                 >
                   Post Your First Job
@@ -294,44 +403,41 @@ export const EmployerDashboard: React.FC<EmployerDashboardProps> = ({ onNavigate
                             <DollarSign className="w-4 h-4" />
                             <span>
                               {job.salary_min && job.salary_max 
-                                ? `$${job.salary_min.toLocaleString()} - $${job.salary_max.toLocaleString()}`
+                                  ? `₹${job.salary_min.toLocaleString()} - ₹${job.salary_max.toLocaleString()}`
                                 : 'Salary not disclosed'
                               }
                             </span>
                           </div>
                         </div>
-                        <p className="text-gray-600 dark:text-gray-400 text-sm line-clamp-2">
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                            <span>Employer: {job.employer_name}</span>
+                            <span className="mx-2">•</span>
+                            <span>Company: {job.company_name}</span>
+                            <span className="mx-2">•</span>
+                            <span>Created: {job.created_at ? new Date(job.created_at).toLocaleDateString() : 'Unknown'}</span>
+                          </div>
+                          <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
                           {job.description}
                         </p>
-                        <div className="flex items-center space-x-2 mt-3">
-                          <span className="text-xs text-gray-500">
-                            Posted: {job.created_at ? new Date(job.created_at).toLocaleDateString() : 'Recently'}
-                          </span>
-                          <span className="text-xs text-gray-500">
-                            • {job.applications_count || 0} applications
-                          </span>
                         </div>
-                      </div>
-                      <div className="flex flex-col space-y-2 ml-4">
-                        <Button size="sm" variant="outline">
-                          Edit
-                        </Button>
-                        <Button size="sm" variant="outline">
-                          View Applications
+                        <div className="flex items-center space-x-2 ml-4">
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={() => fetchApplications(job._id || job.id || '')}
+                            disabled={loadingApplications && selectedJob === (job._id || job.id)}
+                          >
+                            <Eye className="w-4 h-4 mr-2" />
+                            {loadingApplications && selectedJob === (job._id || job.id) ? 'Loading...' : 'View Applications'}
                         </Button>
                         <Button 
+                            variant="outline"
                           size="sm" 
-                          variant="outline" 
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
-                          onClick={() => handleDeleteJob(job._id || job.id, job.title)}
-                          disabled={deletingJobId === (job._id || job.id)}
-                        >
-                          {deletingJobId === (job._id || job.id) ? (
-                            <LoadingSpinner size="sm" />
-                          ) : (
-                            <Trash2 className="w-4 h-4" />
-                          )}
-                          {deletingJobId === (job._id || job.id) ? 'Deleting...' : 'Delete'}
+                            onClick={() => openDeleteDialog(job)}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 border-red-300 hover:border-red-400"
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete
                         </Button>
                       </div>
                     </div>
@@ -481,38 +587,111 @@ export const EmployerDashboard: React.FC<EmployerDashboardProps> = ({ onNavigate
         </Card>
       </div>
 
-      {showJobBuilder && (
-        <JobPostingBuilder onBack={() => setShowJobBuilder(false)} onJobPosted={handleJobPosted} />
-      )}
-
-      {/* Active Jobs Section (bottom of dashboard) */}
-      {!showJobBuilder && (
-        <Card>
-          <h2 className="text-xl font-bold mb-4">Active Jobs ({activeJobsCount})</h2>
-          {jobs.length === 0 ? (
-            <p>No active jobs yet. Click 'Post New Job' to add one.</p>
-          ) : (
-            <div className="grid gap-4">
-              {jobs.map(job => (
-                <JobCard key={job.id} job={job} />
+        {/* Skills in Demand */}
+        <div className="mb-8">
+          <h2 className={`text-2xl font-bold mb-6 ${
+            theme === 'light' ? 'text-gray-900' : 'text-white'
+          }`}>
+            Skills in Demand
+          </h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            {['React', 'Python', 'AWS', 'Docker', 'Kubernetes', 'Machine Learning'].map((skill) => (
+              <Card key={skill} className="p-4 text-center hover:shadow-md transition-shadow cursor-pointer">
+                <div className={`text-sm font-medium ${
+                  theme === 'light' ? 'text-gray-900' : 'text-white'
+                }`}>
+                  {skill}
+                </div>
+                <div className="text-xs text-green-600 mt-1">+15% demand</div>
+              </Card>
               ))}
             </div>
-          )}
-        </Card>
-      )}
+        </div>
 
-      {/* Confirmation Dialog */}
+        {/* Delete Confirmation Dialog */}
       <ConfirmDialog
-        isOpen={showDeleteDialog}
-        onClose={cancelDeleteJob}
-        onConfirm={confirmDeleteJob}
-        title="Delete Job"
-        message={`Are you sure you want to delete "${jobToDelete?.title}"? This action cannot be undone and will permanently remove the job posting.`}
+          isOpen={deleteDialog.isOpen}
+          onClose={closeDeleteDialog}
+          onConfirm={handleDeleteJob}
+          title="Delete Job Posting"
+          message={getDeleteMessage()}
         confirmText="Delete Job"
         cancelText="Cancel"
         variant="danger"
-        loading={deletingJobId !== null}
-      />
+          loading={deletingJob}
+        />
+
+        {/* Applications Modal */}
+        {selectedJob && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-lg max-w-4xl w-full max-h-[80vh] overflow-y-auto">
+              <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                    Applications
+                  </h2>
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setSelectedJob(null);
+                      setApplications([]);
+                    }}
+                  >
+                    ×
+                  </Button>
+                </div>
+              </div>
+              
+              <div className="p-6">
+                {applications.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                      No applications yet
+                    </h3>
+                    <p className="text-gray-600 dark:text-gray-400">
+                      Applications will appear here when candidates apply to your job.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {applications.map((app) => (
+                      <Card key={app._id} className="p-4 hover-lift transition-all duration-300">
+                        <div className="flex justify-between items-start mb-3">
+                          <div>
+                            <h4 className="font-semibold text-gray-900 dark:text-white">
+                              {app.applicant_name}
+                            </h4>
+                            <p className="text-gray-600 dark:text-gray-400 text-sm">
+                              {app.applicant_email}
+                            </p>
+                          </div>
+                          <Badge variant="outline">
+                            {app.status}
+                          </Badge>
+                        </div>
+                        
+                        <div className="mb-3">
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            <strong>Cover Letter:</strong>
+                          </p>
+                          <p className="text-sm text-gray-700 dark:text-gray-300 mt-1">
+                            {app.cover_letter}
+                          </p>
+                        </div>
+                        
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          Applied: {formatDate(app.created_at)}
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
     </div>
+    </>
   );
 };

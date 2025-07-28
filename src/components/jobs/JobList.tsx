@@ -1,26 +1,69 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Loader2, Briefcase, AlertCircle } from 'lucide-react';
 import { JobCard } from './JobCard';
-import { useJobs } from '../../contexts/JobContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { LoadingSpinner } from '../common/LoadingSpinner';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
+import { jobService } from '../../services/jobService';
+import type { JobResponse } from '../../services/jobService';
 
 export const JobList: React.FC = () => {
-  const { filteredJobs, loading, error, refetchJobs } = useJobs();
+  const [jobs, setJobs] = useState<JobResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const { isAuthenticated } = useAuth();
 
-  const handleApply = (jobId: number) => {
+  const fetchJobs = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const jobsData = await jobService.getJobs();
+      setJobs(jobsData);
+    } catch (err: any) {
+      console.error('Error fetching jobs:', err);
+      setError(err.message || 'Failed to fetch jobs');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchJobs();
+  }, []);
+
+  const handleApply = async (jobId: number) => {
     if (!isAuthenticated) {
       // Show login modal or redirect to login
       console.log('Please login to apply for jobs');
       return;
     }
     
-    // Handle job application
-    console.log('Applying to job:', jobId);
-    // TODO: Implement application logic
+    try {
+      // Create a simple application (you can enhance this with a form later)
+      const applicationData = {
+        cover_letter: "I am interested in this position and would like to apply.",
+        resume_url: "",
+        video_resume_url: "",
+        audio_resume_url: "",
+        portfolio_url: "",
+        linkedin_url: "",
+        github_url: ""
+      };
+      
+      await jobService.applyForJob(jobId, applicationData);
+      console.log('Successfully applied to job:', jobId);
+      
+      // Refresh the job list to update application counts
+      fetchJobs();
+      
+      // Show success message (you can add a toast notification here)
+      alert('Application submitted successfully!');
+    } catch (error: any) {
+      console.error('Error applying to job:', error);
+      const errorMessage = error.response?.data?.detail || error.message || 'Failed to apply for job';
+      alert(`Error: ${errorMessage}`);
+    }
   };
 
   const handleSave = (jobId: number) => {
@@ -54,7 +97,7 @@ export const JobList: React.FC = () => {
         </p>
         <Button
           variant="primary"
-          onClick={refetchJobs}
+          onClick={fetchJobs}
           className="mx-auto"
         >
           Try Again
@@ -63,7 +106,7 @@ export const JobList: React.FC = () => {
     );
   }
 
-  if (filteredJobs.length === 0) {
+  if (jobs.length === 0) {
     return (
       <Card className="text-center py-12">
         <Briefcase className="w-16 h-16 text-gray-400 mx-auto mb-4" />
@@ -88,7 +131,7 @@ export const JobList: React.FC = () => {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-            {filteredJobs.length} {filteredJobs.length === 1 ? 'Job' : 'Jobs'} Found
+            {jobs.length} {jobs.length === 1 ? 'Job' : 'Jobs'} Found
           </h2>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
             Discover your next career opportunity
@@ -107,9 +150,9 @@ export const JobList: React.FC = () => {
       </div>
       
       <div className="grid gap-6">
-        {filteredJobs.map((job) => (
+        {jobs.map((job: JobResponse) => (
           <JobCard
-            key={job.id}
+            key={job.id || job._id}
             job={job}
             onApply={handleApply}
             onSave={handleSave}
@@ -119,7 +162,7 @@ export const JobList: React.FC = () => {
       </div>
 
       {/* Load More Button */}
-      {filteredJobs.length >= 20 && (
+      {jobs.length >= 20 && (
         <div className="text-center pt-8">
           <Button
             variant="outline"

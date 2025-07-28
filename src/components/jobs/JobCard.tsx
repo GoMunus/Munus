@@ -45,7 +45,9 @@ export const JobCard: React.FC<JobCardProps> = ({
     return 'Salary not disclosed';
   };
 
-  const getTimeAgo = (dateString: string) => {
+  const getTimeAgo = (dateString: string | undefined) => {
+    if (!dateString) return 'Recently';
+    
     try {
       const date = new Date(dateString);
       const now = new Date();
@@ -63,7 +65,9 @@ export const JobCard: React.FC<JobCardProps> = ({
     }
   };
 
-  const getWorkModeColor = (mode: string) => {
+  const getWorkModeColor = (mode: string | undefined) => {
+    if (!mode) return 'outline';
+    
     switch (mode.toLowerCase()) {
       case 'remote': return 'success';
       case 'hybrid': return 'primary';
@@ -72,7 +76,9 @@ export const JobCard: React.FC<JobCardProps> = ({
     }
   };
 
-  const getJobTypeColor = (type: string) => {
+  const getJobTypeColor = (type: string | undefined) => {
+    if (!type) return 'outline';
+    
     switch (type.toLowerCase()) {
       case 'full-time': return 'primary';
       case 'part-time': return 'secondary';
@@ -84,6 +90,8 @@ export const JobCard: React.FC<JobCardProps> = ({
   };
 
   const isNewJob = () => {
+    if (!job.created_at) return false;
+    
     try {
       const daysSincePosted = Math.floor((new Date().getTime() - new Date(job.created_at).getTime()) / (1000 * 60 * 60 * 24));
       return daysSincePosted <= 1;
@@ -96,17 +104,24 @@ export const JobCard: React.FC<JobCardProps> = ({
     return (job.applications_count || 0) > 20;
   };
 
-  const formatJobType = (type: string) => {
+  const formatJobType = (type: string | undefined) => {
+    if (!type) return 'Unknown';
     return type.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
 
-  const formatWorkMode = (mode: string) => {
+  const formatWorkMode = (mode: string | undefined) => {
+    if (!mode) return 'Unknown';
     return mode.replace(/\b\w/g, l => l.toUpperCase());
   };
 
   const handleApply = () => {
     try {
-      onApply?.(job.id);
+      const jobId = job.id || job._id;
+      if (!jobId) {
+        console.error('No job ID found');
+        return;
+      }
+      onApply?.(Number(jobId));
     } catch (error) {
       console.error('Error applying to job:', error);
     }
@@ -114,7 +129,12 @@ export const JobCard: React.FC<JobCardProps> = ({
 
   const handleSave = () => {
     try {
-      onSave?.(job.id);
+      const jobId = job.id || job._id;
+      if (!jobId) {
+        console.error('No job ID found');
+        return;
+      }
+      onSave?.(Number(jobId));
     } catch (error) {
       console.error('Error saving job:', error);
     }
@@ -150,7 +170,7 @@ export const JobCard: React.FC<JobCardProps> = ({
               {job.title || 'Job Title'}
             </h3>
             <p className="text-gray-600 dark:text-gray-400 font-semibold text-lg">
-              Company Name
+              {job.company_name || job.employer_name || 'Company Name'}
             </p>
           </div>
         </div>

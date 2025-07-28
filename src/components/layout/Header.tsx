@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Menu, X, User, Settings, LogOut, Sun, Moon, Zap, Bell, Home, ChevronDown, HelpCircle, Mail } from 'lucide-react';
+import { Menu, X, User, Settings, LogOut, Sun, Moon, Zap, Bell, Home, ChevronDown, HelpCircle, Mail, LayoutDashboard } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Button } from '../ui/Button';
@@ -75,13 +75,14 @@ export const Header: React.FC<HeaderProps> = ({
 
     if (isEmployer) {
       return [
-        { name: 'Dashboard', href: '#dashboard', view: 'dashboard' as const, icon: Home },
+        { name: 'Dashboard', href: '#dashboard', view: 'dashboard' as const, icon: LayoutDashboard },
         { name: 'Find Candidates', href: '#candidates', view: 'candidates' as const, icon: User },
         { name: 'FAQs', href: '#faqs', view: 'faqs' as const, icon: HelpCircle },
         { name: 'Contact Us', href: '#contact', view: 'contact' as const, icon: Mail },
       ];
     } else if (isJobSeeker) {
       return [
+        { name: 'Dashboard', href: '#dashboard', view: 'dashboard' as const, icon: LayoutDashboard },
         { name: 'Find Jobs', href: '#jobs', view: 'jobs' as const, icon: User },
         { name: 'Resume Builder', href: '#resume', view: 'resume' as const, icon: User },
         { name: 'My Profile', href: '#profile', view: 'profile' as const, icon: User },
@@ -140,7 +141,9 @@ export const Header: React.FC<HeaderProps> = ({
 
             {/* Desktop Navigation */}
             <nav className="hidden md:flex space-x-1">
-              {navigation.map((item) => (
+              {navigation.map((item) => {
+                const IconComponent = item.icon;
+                return (
                 <button
                   key={item.name}
                   onClick={() => handleNavigation(item.view)}
@@ -152,9 +155,11 @@ export const Header: React.FC<HeaderProps> = ({
                       : ''
                   }`}
                 >
+                    <IconComponent className="w-4 h-4" />
                   <span>{item.name}</span>
                 </button>
-              ))}
+                );
+              })}
             </nav>
 
             {/* Right side buttons */}
@@ -343,7 +348,9 @@ export const Header: React.FC<HeaderProps> = ({
               : 'border-gray-700 bg-gray-900/95'
           }`}>
             <div className="px-4 pt-2 pb-3 space-y-1">
-              {navigation.map((item) => (
+              {navigation.map((item) => {
+                const IconComponent = item.icon;
+                return (
                 <button
                   key={item.name}
                   onClick={() => handleNavigation(item.view)}
@@ -359,9 +366,11 @@ export const Header: React.FC<HeaderProps> = ({
                         }`
                   }`}
                 >
+                    <IconComponent className="w-5 h-5" />
                   <span>{item.name}</span>
                 </button>
-              ))}
+                );
+              })}
               
               {/* Mobile Theme Toggle */}
               <button

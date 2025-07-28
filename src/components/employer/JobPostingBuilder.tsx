@@ -980,7 +980,7 @@ We offer a collaborative work environment, competitive compensation, and excelle
       console.log('JobPostingBuilder: Starting job publication...');
       console.log('JobPostingBuilder: Current jobData:', jobData);
       
-      // Send ANY data the user has entered - no validation, no requirements
+      // Send job data - employer information will be added by the backend from authenticated user
       const payload = {
         title: jobData.title || "Untitled Job",
         description: jobData.description || "No description",
@@ -995,10 +995,8 @@ We offer a collaborative work environment, competitive compensation, and excelle
         salary_min: jobData.salaryMin ? Number(jobData.salaryMin) : undefined,
         salary_max: jobData.salaryMax ? Number(jobData.salaryMax) : undefined,
         salary_currency: jobData.currency || "USD",
-        // Add employer information from authenticated user
-        employer_id: user?._id || `emp_${Date.now()}`,
-        employer_name: user?.name || "Anonymous Employer",
-        company_name: user?.company_name || user?.name || "Anonymous Company"
+        // Optional company name - will use user's company name if not provided
+        company_name: user?.company_name || user?.name
       };
       
       console.log('JobPostingBuilder: Payload to send:', payload);

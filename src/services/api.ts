@@ -1,11 +1,11 @@
-import axios, { AxiosInstance, AxiosResponse, AxiosError } from 'axios';
+import axios from 'axios';
 
 // API Configuration
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
 const API_VERSION = '/api/v1';
 
 // Create axios instance
-const apiClient: AxiosInstance = axios.create({
+const apiClient = axios.create({
   baseURL: `${API_BASE_URL}${API_VERSION}`,
   timeout: 30000,
   headers: {
@@ -15,7 +15,7 @@ const apiClient: AxiosInstance = axios.create({
 
 // Request interceptor to add auth token
 apiClient.interceptors.request.use(
-  (config) => {
+  (config: any) => {
     console.log(`Making ${config.method?.toUpperCase()} request to: ${config.baseURL}${config.url}`);
     const token = localStorage.getItem('skillglide-access-token');
     if (token) {
@@ -23,7 +23,7 @@ apiClient.interceptors.request.use(
     }
     return config;
   },
-  (error) => {
+  (error: any) => {
     console.error('API request error:', error);
     return Promise.reject(error);
   }
@@ -31,11 +31,11 @@ apiClient.interceptors.request.use(
 
 // Response interceptor to handle token refresh
 apiClient.interceptors.response.use(
-  (response) => {
+  (response: any) => {
     console.log(`Response from ${response.config.url}:`, response.status);
     return response;
   },
-  async (error: AxiosError) => {
+  async (error: any) => {
     console.error('API response error:', error.response?.status, error.response?.data);
     
     const originalRequest = error.config;
@@ -60,7 +60,7 @@ apiClient.interceptors.response.use(
           refresh_token: refreshToken,
         });
 
-        const { access_token, refresh_token: newRefreshToken } = response.data;
+        const { access_token, refresh_token: newRefreshToken } = response.data as any;
         
         // Update tokens in storage
         localStorage.setItem('skillglide-access-token', access_token);
@@ -111,14 +111,14 @@ apiClient.interceptors.response.use(
 
 // Generic API methods with better error handling
 export const api = {
-  get: <T = any>(url: string, params?: any): Promise<AxiosResponse<T>> => {
+  get: <T = any>(url: string, params?: any): Promise<any> => {
     return apiClient.get(url, { params }).catch((error) => {
       console.error(`GET ${url} failed:`, error);
       throw error;
     });
   },
   
-  post: <T = any>(url: string, data?: any): Promise<AxiosResponse<T>> => {
+  post: <T = any>(url: string, data?: any): Promise<any> => {
     console.log(`API: Making POST request to ${url}`);
     console.log('API: Request data:', data);
     return apiClient.post(url, data).catch((error) => {
@@ -128,28 +128,28 @@ export const api = {
     });
   },
   
-  put: <T = any>(url: string, data?: any): Promise<AxiosResponse<T>> => {
+  put: <T = any>(url: string, data?: any): Promise<any> => {
     return apiClient.put(url, data).catch((error) => {
       console.error(`PUT ${url} failed:`, error);
       throw error;
     });
   },
   
-  patch: <T = any>(url: string, data?: any): Promise<AxiosResponse<T>> => {
+  patch: <T = any>(url: string, data?: any): Promise<any> => {
     return apiClient.patch(url, data).catch((error) => {
       console.error(`PATCH ${url} failed:`, error);
       throw error;
     });
   },
   
-  delete: <T = any>(url: string): Promise<AxiosResponse<T>> => {
+  delete: <T = any>(url: string): Promise<any> => {
     return apiClient.delete(url).catch((error) => {
       console.error(`DELETE ${url} failed:`, error);
       throw error;
     });
   },
   
-  upload: <T = any>(url: string, formData: FormData): Promise<AxiosResponse<T>> => {
+  upload: <T = any>(url: string, formData: FormData): Promise<any> => {
     return apiClient.post(url, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',

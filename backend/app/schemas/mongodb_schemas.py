@@ -192,7 +192,7 @@ class MongoDBCompany(BaseModel):
 class MongoDBUser(BaseModel):
     """MongoDB User Schema (for user-specific data)"""
     id: Optional[str] = Field(None, alias="_id")
-    user_id: str  # Reference to PostgreSQL user ID
+    user_id: Optional[str] = None  # Reference to PostgreSQL user ID (optional for MongoDB-only setup)
     email: str
     
     # Profile Information

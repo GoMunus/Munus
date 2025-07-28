@@ -27,6 +27,7 @@ const AppContent: React.FC = () => {
   const [currentView, setCurrentView] = useState<'home' | 'jobs' | 'resume' | 'profile' | 'create-profile' | 'dashboard' | 'post-job' | 'candidates' | 'faqs' | 'contact'>('home');
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<'login' | 'register'>('login');
+  const [dashboardKey, setDashboardKey] = useState(0); // Key to force dashboard refresh
   const { isAuthenticated, isEmployer, isJobSeeker, user, loading } = useAuth();
   const { theme } = useTheme();
   const { toasts, removeToast } = useToast();
@@ -119,27 +120,52 @@ const AppContent: React.FC = () => {
   };
 
   const handleProfileCreationComplete = () => {
-    // Redirect immediately after registration based on user role
-    // Get the current user from localStorage since registration just completed
-    const storedUserStr = localStorage.getItem('skillglide-user');
-    if (storedUserStr) {
-      const storedUser = JSON.parse(storedUserStr);
-      console.log('User registered:', storedUser);
+    console.log('🎉 Profile creation completed!');
+    
+    // Wait a moment for AuthContext to update, then check both AuthContext and localStorage
+    setTimeout(() => {
+      // First check AuthContext state
+      if (isAuthenticated && user) {
+        console.log('✅ Using AuthContext user:', user);
+        if (user.role === 'employer') {
+          console.log('🎯 Redirecting to employer dashboard (AuthContext)');
+          setCurrentView('dashboard');
+        } else if (user.role === 'jobseeker') {
+          console.log('🎯 Redirecting to job seeker dashboard (AuthContext)');
+          setCurrentView('dashboard');
+        } else {
+          console.log('❓ Unknown role in AuthContext, redirecting to home');
+          setCurrentView('home');
+        }
+        return;
+      }
       
-      if (storedUser.role === 'employer') {
-        console.log('Redirecting to employer dashboard');
-        setCurrentView('dashboard');
-      } else if (storedUser.role === 'jobseeker') {
-        console.log('Redirecting to job seeker dashboard');
-        setCurrentView('dashboard');
+      // Fallback to localStorage
+      const storedUserStr = localStorage.getItem('skillglide-user');
+      if (storedUserStr) {
+        try {
+          const storedUser = JSON.parse(storedUserStr);
+          console.log('📋 Using localStorage user:', storedUser);
+          
+          if (storedUser.role === 'employer') {
+            console.log('🎯 Redirecting to employer dashboard (localStorage)');
+            setCurrentView('dashboard');
+          } else if (storedUser.role === 'jobseeker') {
+            console.log('🎯 Redirecting to job seeker dashboard (localStorage)');
+            setCurrentView('dashboard');
+          } else {
+            console.log('❓ Unknown role in localStorage, redirecting to home');
+            setCurrentView('home');
+          }
+        } catch (error) {
+          console.error('❌ Error parsing stored user:', error);
+          setCurrentView('home');
+        }
       } else {
-        console.log('Unknown role, redirecting to home');
+        console.log('❌ No user found in AuthContext or localStorage, redirecting to home');
         setCurrentView('home');
       }
-    } else {
-      console.log('No user found, redirecting to home');
-      setCurrentView('home');
-    }
+    }, 500); // Wait 500ms for AuthContext to update
   };
 
   const handleProfileCreationBack = () => {
@@ -202,12 +228,21 @@ const AppContent: React.FC = () => {
           return <ResumeBuilder />;
         case 'dashboard':
           return isEmployer ? (
-            <EmployerDashboard onNavigate={setCurrentView} />
+            <EmployerDashboard key={dashboardKey} onNavigate={setCurrentView} />
           ) : (
-            <JobSeekerDashboard onNavigate={setCurrentView} />
+            <JobSeekerDashboard />
           );
         case 'post-job':
-          return <JobPostingBuilder onBack={() => setCurrentView('dashboard')} />;
+          return (
+            <JobPostingBuilder 
+              onBack={() => setCurrentView('dashboard')} 
+              onJobPosted={(newJob) => {
+                console.log('Job posted successfully:', newJob);
+                setDashboardKey(prev => prev + 1); // Force dashboard refresh
+                setCurrentView('dashboard');
+              }}
+            />
+          );
         case 'candidates':
           return (
             <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 ${
@@ -297,7 +332,7 @@ function App() {
       <ThemeProvider>
         <AuthProvider>
           <JobProvider>
-            <ConnectionStatus />
+            {/* <ConnectionStatus /> */}
             <AppContent />
           </JobProvider>
         </AuthProvider>

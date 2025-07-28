@@ -14,9 +14,11 @@ export interface JobResponse {
   responsibilities?: string[];
   benefits?: string[];
   required_skills?: string[];
+  skills?: string[];
   salary_min?: number;
   salary_max?: number;
   salary_currency?: string;
+  salary_period?: string;
   status?: string;
   is_featured?: boolean;
   employer_id?: string;
@@ -51,20 +53,25 @@ class JobService {
 
   async applyForJob(jobId: number, data: any): Promise<any> {
     try {
-      const response = await api.post(`/jobs/${jobId}/apply/`, data);
+      console.log('JobService: Applying to job:', jobId);
+      const response = await api.post(`/jobs/${jobId}/apply`, data);
+      console.log('JobService: Application submitted successfully:', response.data);
       return response.data;
     } catch (error: any) {
-      const errorMessage = error.response?.data?.detail || 'Failed to apply for job';
-      throw new Error(errorMessage);
+      console.error('JobService: Error applying to job:', error);
+      throw error;
     }
   }
 
   async getMyApplications(): Promise<any[]> {
     try {
-      const response = await api.get('/jobs/applications/me/');
-      return Array.isArray(response.data) ? response.data : [];
+      console.log('JobService: Fetching my applications...');
+      const response = await api.get('/jobs/applications/my-applications');
+      const applications = Array.isArray(response.data) ? response.data : [];
+      console.log('JobService: Found my applications:', applications.length);
+      return applications;
     } catch (error: any) {
-      console.error('Error fetching applications:', error);
+      console.error('JobService: Error fetching my applications:', error);
       return [];
     }
   }
@@ -81,85 +88,66 @@ class JobService {
 
   async createJob(jobData: any): Promise<JobResponse> {
     try {
+      console.log('JobService: Creating job with data:', jobData);
+      
+      // Check if user is authenticated
+      const userStr = localStorage.getItem('skillglide-user');
+      const token = localStorage.getItem('skillglide-access-token');
+      
+      console.log('JobService: User from localStorage:', userStr);
+      console.log('JobService: Token exists:', !!token);
+      
       const response = await api.post<JobResponse>('/jobs/', jobData);
+      console.log('JobService: Job created successfully:', response.data);
       return response.data;
     } catch (error: any) {
-      console.error('Error creating job:', error);
+      console.error('JobService: Error creating job:', error);
+      console.error('JobService: Error response:', error.response);
       throw error;
     }
   }
 
   async getEmployerJobs(): Promise<JobResponse[]> {
     try {
-      // Get all jobs and filter by employer
-      const response = await api.get<JobResponse[]>('/jobs/');
-      const allJobs = Array.isArray(response.data) ? response.data : [];
+      console.log('JobService: Fetching employer jobs...');
       
-      // Get current user from localStorage
+      // Check if user is authenticated
       const userStr = localStorage.getItem('skillglide-user');
-      if (!userStr) {
-        console.log('No user found, returning empty array');
+      const token = localStorage.getItem('skillglide-access-token');
+      
+      console.log('JobService: User from localStorage:', userStr);
+      console.log('JobService: Token exists:', !!token);
+      
+      if (!userStr || !token) {
+        console.log('JobService: No user or token found');
         return [];
       }
       
       const user = JSON.parse(userStr);
-      console.log('Current user:', user);
+      console.log('JobService: Current user:', user);
       
-      // Filter jobs by employer_id or employer_name
-      const employerJobs = allJobs.filter((job: JobResponse) => {
-        const jobEmployerId = job.employer_id;
-        const jobEmployerName = job.employer_name;
-        const userEmployerId = user._id || user.id;
-        const userName = user.name;
-        const userCompanyName = user.company_name;
+      // Use the new employer-specific endpoint
+      const response = await api.get<JobResponse[]>('/jobs/employer-jobs');
+      const employerJobs = Array.isArray(response.data) ? response.data : [];
+      
+      console.log('JobService: Response from API:', response);
+      console.log(`JobService: Found ${employerJobs.length} jobs for current employer`);
         
-        console.log('Comparing job:', {
-          jobTitle: job.title,
-          jobEmployerId,
-          jobEmployerName,
-          userEmployerId,
-          userName,
-          userCompanyName
+      // Log each job for debugging
+      employerJobs.forEach((job: JobResponse, index: number) => {
+        console.log(`JobService: Job ${index + 1}:`, {
+          id: job._id || job.id,
+          title: job.title,
+          employer_name: job.employer_name,
+          company_name: job.company_name,
+          created_at: job.created_at
         });
-        
-        // Match by employer ID (exact match)
-        if (jobEmployerId === userEmployerId) {
-          console.log('✅ Matched by employer ID');
-          return true;
-        }
-        
-        // Match by employer name (exact match)
-        if (jobEmployerName === userName) {
-          console.log('✅ Matched by employer name');
-          return true;
-        }
-        
-        // Match by company name (exact match)
-        if (jobEmployerName === userCompanyName) {
-          console.log('✅ Matched by company name');
-          return true;
-        }
-        
-        // Match by employer name containing user name (partial match)
-        if (userName && jobEmployerName && jobEmployerName.toLowerCase().includes(userName.toLowerCase())) {
-          console.log('✅ Matched by partial employer name');
-          return true;
-        }
-        
-        // Match by user name containing employer name (partial match)
-        if (userName && jobEmployerName && userName.toLowerCase().includes(jobEmployerName.toLowerCase())) {
-          console.log('✅ Matched by partial user name');
-          return true;
-        }
-        
-        console.log('❌ No match found');
-        return false;
       });
       
-      console.log(`Found ${employerJobs.length} jobs for employer ${user.name}`);
       return employerJobs;
     } catch (error: any) {
-      console.error('Error fetching employer jobs:', error);
+      console.error('JobService: Error fetching employer jobs:', error);
+      console.error('JobService: Error response:', error.response);
       return [];
     }
   }
@@ -172,6 +160,31 @@ class JobService {
     } catch (error: any) {
       console.error('Error deleting job:', error);
       throw error;
+    }
+  }
+
+  async testEmployerEndpoint(): Promise<any> {
+    try {
+      console.log('JobService: Testing employer endpoint...');
+      const response = await api.get('/jobs/employer-jobs');
+      console.log('JobService: Test endpoint response:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('JobService: Test endpoint error:', error);
+      throw error;
+    }
+  }
+
+  async getJobApplications(jobId: string): Promise<any[]> {
+    try {
+      console.log('JobService: Fetching applications for job:', jobId);
+      const response = await api.get(`/jobs/${jobId}/applications`);
+      const applications = Array.isArray(response.data) ? response.data : [];
+      console.log('JobService: Found applications:', applications.length);
+      return applications;
+    } catch (error: any) {
+      console.error('JobService: Error fetching job applications:', error);
+      return [];
     }
   }
 }
