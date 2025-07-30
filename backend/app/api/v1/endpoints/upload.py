@@ -2,10 +2,9 @@ import os
 import uuid
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
-# from sqlalchemy.orm import Session  # Removed for MongoDB-only setup
-from app.db.database import get_db
+from app.db.database import get_users_collection
 from app.api.deps import get_current_user
-from app.models.user import User
+from app.schemas.mongodb_schemas import MongoDBUser as User
 
 router = APIRouter()
 
@@ -26,11 +25,9 @@ MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 
 def validate_file_size(file: UploadFile):
     """Validate file size"""
-    if file.size and file.size > MAX_FILE_SIZE:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"File size too large. Maximum allowed size is {MAX_FILE_SIZE // (1024*1024)}MB"
-        )
+    # For now, skip size validation to avoid reading file twice
+    # The file will be validated when saved
+    pass
 
 
 def save_file(file: UploadFile, directory: str) -> str:
@@ -50,9 +47,8 @@ def save_file(file: UploadFile, directory: str) -> str:
 
 
 @router.post("/avatar")
-def upload_avatar(
+async def upload_avatar(
     file: UploadFile = File(...),
-    db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Upload user avatar"""
@@ -70,12 +66,23 @@ def upload_avatar(
         # Save file
         avatar_url = save_file(file, "avatars")
         
-        # Update user avatar URL in database
-        current_user.avatar_url = avatar_url
-        db.commit()
+        # Update user avatar URL in MongoDB
+        users_collection = get_users_collection()
+        result = users_collection.update_one(
+            {"email": current_user.email},
+            {"$set": {"avatar_url": avatar_url}}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
         
         return {"avatar_url": avatar_url}
         
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

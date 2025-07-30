@@ -4,6 +4,7 @@ import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Badge } from '../ui/Badge';
+import { PhotoUpload } from '../ui/PhotoUpload';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { userService } from '../../services/userService';
@@ -20,6 +21,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
+  const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string>('');
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [profileData, setProfileData] = useState({
     // Personal Info
     name: user?.name || '',
@@ -61,16 +65,57 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
     setProfileData(prev => ({ ...prev, [field]: value }));
   };
 
+  const handlePhotoChange = (file: File) => {
+    setSelectedPhoto(file);
+    // Create preview URL
+    const previewUrl = URL.createObjectURL(file);
+    setPhotoPreview(previewUrl);
+  };
+
+  const handlePhotoRemove = () => {
+    setSelectedPhoto(null);
+    setPhotoPreview('');
+    // If there was a preview URL, revoke it to free memory
+    if (photoPreview) {
+      URL.revokeObjectURL(photoPreview);
+    }
+  };
+
+  const uploadPhoto = async (file: File): Promise<string> => {
+    setIsUploadingPhoto(true);
+    try {
+      const response = await userService.uploadAvatar(file);
+      return response.avatar_url;
+    } catch (error) {
+      throw new Error('Failed to upload photo. Please try again.');
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
+
   const handleSave = async () => {
     setIsSaving(true);
     setSaveMessage('');
     
     try {
+      // Upload photo first if selected
+      let avatarUrl = profileData.avatar;
+      if (selectedPhoto) {
+        try {
+          avatarUrl = await uploadPhoto(selectedPhoto);
+        } catch (error) {
+          setSaveMessage('Failed to upload photo. Please try again.');
+          setIsSaving(false);
+          return;
+        }
+      }
+
       await userService.updateProfile({
         name: profileData.name,
         phone: profileData.phone,
         location: profileData.location,
         bio: profileData.bio,
+        avatar_url: avatarUrl,
         experience_years: profileData.experience_years,
         expected_salary_min: profileData.expected_salary_min,
         expected_salary_max: profileData.expected_salary_max,
@@ -85,6 +130,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
       setIsEditing(false);
       setSaveMessage('Profile updated successfully!');
       
+      // Clear photo state
+      setSelectedPhoto(null);
+      if (photoPreview) {
+        URL.revokeObjectURL(photoPreview);
+        setPhotoPreview('');
+      }
+      
       // Clear success message after 3 seconds
       setTimeout(() => setSaveMessage(''), 3000);
     } catch (error) {
@@ -97,6 +149,14 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
   const handleCancel = () => {
     setIsEditing(false);
     setSaveMessage('');
+    
+    // Clear photo state
+    setSelectedPhoto(null);
+    if (photoPreview) {
+      URL.revokeObjectURL(photoPreview);
+      setPhotoPreview('');
+    }
+    
     // Reset form data
     setProfileData({
       name: user?.name || '',
@@ -123,31 +183,15 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
   const renderPersonalInfo = () => (
     <div className="space-y-6">
       {/* Profile Picture */}
-      <div className="flex items-center space-x-6">
-        <div className="relative">
-          {profileData.avatar ? (
-            <img
-              src={profileData.avatar}
-              alt="Profile"
-              className={`w-24 h-24 rounded-full object-cover ${
-                theme === 'dark-neon' ? 'ring-2 ring-cyan-500 shadow-lg shadow-cyan-500/25' : 'ring-2 ring-gray-200 shadow-lg'
-              }`}
-            />
-          ) : (
-            <div className={`w-24 h-24 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold ${
-              theme === 'dark-neon' ? 'shadow-lg shadow-blue-500/25' : 'shadow-lg'
-            }`}>
-              {user?.name?.charAt(0).toUpperCase() || 'U'}
-            </div>
-          )}
-          {isEditing && (
-            <button className={`absolute bottom-0 right-0 w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white hover:bg-blue-700 transition-colors ${
-              theme === 'dark-neon' ? 'shadow-lg shadow-blue-500/25' : 'shadow-md'
-            }`}>
-              <Camera className="w-4 h-4" />
-            </button>
-          )}
-        </div>
+      <div className="flex flex-col sm:flex-row sm:items-center space-y-4 sm:space-y-0 sm:space-x-6">
+        <PhotoUpload
+          currentPhoto={photoPreview || profileData.avatar}
+          onPhotoChange={handlePhotoChange}
+          onPhotoRemove={handlePhotoRemove}
+          disabled={!isEditing || isUploadingPhoto}
+          size="lg"
+          className="flex-shrink-0"
+        />
         <div>
           <h3 className={`text-lg font-semibold ${
             theme === 'light' ? 'text-gray-900' : 'text-white'
@@ -157,17 +201,13 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
           <p className={`text-sm ${
             theme === 'light' ? 'text-gray-600' : 'text-gray-400'
           }`}>
-            Upload a professional photo to make a great first impression
+            Upload a professional photo to make a great first impression. 
+            {isEditing && ' You can drag and drop an image, browse files, or use your camera.'}
           </p>
-          {isEditing && (
-            <div className="flex space-x-2 mt-2">
-              <Button variant="outline" size="sm" icon={<Upload className="w-4 h-4" />}>
-                Upload New
-              </Button>
-              <Button variant="ghost" size="sm">
-                Remove
-              </Button>
-            </div>
+          {isUploadingPhoto && (
+            <p className="text-sm text-blue-600 dark:text-blue-400 mt-2">
+              Uploading photo...
+            </p>
           )}
         </div>
       </div>

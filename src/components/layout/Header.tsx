@@ -9,7 +9,7 @@ import { notificationService } from '../../services/notificationService';
 import { useApi } from '../../hooks/useApi';
 
 interface HeaderProps {
-  onNavigate?: (view: 'home' | 'jobs' | 'resume' | 'profile' | 'create-profile' | 'dashboard' | 'post-job' | 'candidates' | 'faqs' | 'contact') => void;
+  onNavigate?: (view: 'home' | 'jobs' | 'resume' | 'profile' | 'create-profile' | 'dashboard' | 'post-job' | 'candidates' | 'faqs' | 'contact' | 'settings') => void;
   currentView?: string;
   onGetStarted?: () => void;
   onSignIn?: () => void;
@@ -68,8 +68,6 @@ export const Header: React.FC<HeaderProps> = ({
         { name: 'Home', href: '#home', view: 'home' as const, icon: Home },
         { name: 'Find Jobs', href: '#jobs', view: 'jobs' as const, icon: User },
         { name: 'Resume Builder', href: '#resume', view: 'resume' as const, icon: User },
-        { name: 'FAQs', href: '#faqs', view: 'faqs' as const, icon: HelpCircle },
-        { name: 'Contact Us', href: '#contact', view: 'contact' as const, icon: Mail },
       ];
     }
 
@@ -77,8 +75,6 @@ export const Header: React.FC<HeaderProps> = ({
       return [
         { name: 'Dashboard', href: '#dashboard', view: 'dashboard' as const, icon: LayoutDashboard },
         { name: 'Find Candidates', href: '#candidates', view: 'candidates' as const, icon: User },
-        { name: 'FAQs', href: '#faqs', view: 'faqs' as const, icon: HelpCircle },
-        { name: 'Contact Us', href: '#contact', view: 'contact' as const, icon: Mail },
       ];
     } else if (isJobSeeker) {
       return [
@@ -86,8 +82,6 @@ export const Header: React.FC<HeaderProps> = ({
         { name: 'Find Jobs', href: '#jobs', view: 'jobs' as const, icon: User },
         { name: 'Resume Builder', href: '#resume', view: 'resume' as const, icon: User },
         { name: 'My Profile', href: '#profile', view: 'profile' as const, icon: User },
-        { name: 'FAQs', href: '#faqs', view: 'faqs' as const, icon: HelpCircle },
-        { name: 'Contact Us', href: '#contact', view: 'contact' as const, icon: Mail },
       ];
     }
 
@@ -98,8 +92,8 @@ export const Header: React.FC<HeaderProps> = ({
   const navigation = useMemo(() => getNavigation(), [isAuthenticated, isEmployer, isJobSeeker, currentView, theme]);
 
   // Memoize handlers
-  const handleNavigation = useCallback((view: 'home' | 'jobs' | 'resume' | 'profile' | 'create-profile' | 'dashboard' | 'post-job' | 'candidates' | 'faqs' | 'contact') => {
-    if (!isAuthenticated && ['post-job', 'profile', 'dashboard', 'candidates', 'faqs', 'contact'].includes(view)) {
+  const handleNavigation = useCallback((view: 'home' | 'jobs' | 'resume' | 'profile' | 'create-profile' | 'dashboard' | 'post-job' | 'candidates' | 'faqs' | 'contact' | 'settings') => {
+    if (!isAuthenticated && ['post-job', 'profile', 'dashboard', 'candidates', 'faqs', 'contact', 'settings'].includes(view)) {
       onSignIn?.();
       return;
     }
@@ -134,7 +128,7 @@ export const Header: React.FC<HeaderProps> = ({
                   <Zap className="w-5 h-5 text-white" />
                 </div>
                 <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-cyan-500 bg-clip-text text-transparent">
-                  SkillGlide
+                  Opusnex
                 </h1>
               </button>
             </div>
@@ -277,7 +271,7 @@ export const Header: React.FC<HeaderProps> = ({
                       </button>
                       
                       <button 
-                        onClick={() => handleNavigation('profile')}
+                        onClick={() => handleNavigation('settings')}
                         className={`w-full px-4 py-3 text-left text-sm text-gray-700 dark:text-gray-300 flex items-center space-x-3 transition-colors ${
                           theme === 'light' 
                             ? 'hover:bg-gray-50' 
@@ -286,6 +280,30 @@ export const Header: React.FC<HeaderProps> = ({
                       >
                         <Settings className="w-4 h-4" />
                         <span>Settings</span>
+                      </button>
+                      
+                      <button 
+                        onClick={() => handleNavigation('faqs')}
+                        className={`w-full px-4 py-3 text-left text-sm text-gray-700 dark:text-gray-300 flex items-center space-x-3 transition-colors ${
+                          theme === 'light' 
+                            ? 'hover:bg-gray-50' 
+                            : 'hover:bg-gray-700'
+                        }`}
+                      >
+                        <HelpCircle className="w-4 h-4" />
+                        <span>FAQs</span>
+                      </button>
+                      
+                      <button 
+                        onClick={() => handleNavigation('contact')}
+                        className={`w-full px-4 py-3 text-left text-sm text-gray-700 dark:text-gray-300 flex items-center space-x-3 transition-colors ${
+                          theme === 'light' 
+                            ? 'hover:bg-gray-50' 
+                            : 'hover:bg-gray-700'
+                        }`}
+                      >
+                        <Mail className="w-4 h-4" />
+                        <span>Contact Us</span>
                       </button>
                       
                       <div className="border-t border-gray-200 dark:border-gray-700 mt-2 pt-2">

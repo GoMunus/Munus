@@ -12,7 +12,7 @@ from app.core.config import settings
 from app.db.mongodb import connect_to_mongo, close_mongo_connection
 from app.api.v1.endpoints import (
     mongodb_jobs_clean, mongodb_users, mongodb_notifications, 
-    mongodb_companies, health, auth
+    mongodb_companies, health, auth, upload
 )
 from pydantic import BaseModel
 from twilio.rest import Client
@@ -119,6 +119,9 @@ app.include_router(mongodb_users.router, prefix=f"{settings.API_V1_STR}/users", 
 app.include_router(mongodb_notifications.router, prefix=f"{settings.API_V1_STR}/notifications", tags=["notifications"])
 app.include_router(mongodb_companies.router, prefix=f"{settings.API_V1_STR}/companies", tags=["companies"])
 app.include_router(auth.router, prefix=f"{settings.API_V1_STR}/auth", tags=["auth"])
+
+# Include upload endpoints
+app.include_router(upload.router, prefix=f"{settings.API_V1_STR}/upload", tags=["upload"])
 
 # Include health endpoint
 app.include_router(health.router, prefix=f"{settings.API_V1_STR}/health", tags=["health"])

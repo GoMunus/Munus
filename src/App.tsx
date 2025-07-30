@@ -22,9 +22,10 @@ import { useTheme } from './contexts/ThemeContext';
 import './styles/themes.css';
 import { FAQPage } from './components/faqs/FAQPage';
 import { ContactPage } from './components/contact/ContactPage';
+import { SettingsPage } from './components/profile/SettingsPage';
 
 const AppContent: React.FC = () => {
-  const [currentView, setCurrentView] = useState<'home' | 'jobs' | 'resume' | 'profile' | 'create-profile' | 'dashboard' | 'post-job' | 'candidates' | 'faqs' | 'contact'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'jobs' | 'resume' | 'profile' | 'create-profile' | 'dashboard' | 'post-job' | 'candidates' | 'faqs' | 'contact' | 'settings'>('home');
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<'login' | 'register'>('login');
   const [dashboardKey, setDashboardKey] = useState(0); // Key to force dashboard refresh
@@ -268,6 +269,8 @@ const AppContent: React.FC = () => {
           return <FAQPage />;
         case 'contact':
           return <ContactPage />;
+        case 'settings':
+          return <SettingsPage />;
         default:
           return <HomePage onGetStarted={handleGetStarted} onSignIn={handleSignIn} onFindJobs={handleFindJobs} onResumeBuilder={handleResumeBuilder} />;
       }

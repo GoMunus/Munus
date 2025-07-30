@@ -1,15 +1,64 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, status
 from typing import List, Optional
 from datetime import datetime
 from bson import ObjectId
 from app.db.database import get_users_collection
 from app.schemas.mongodb_schemas import MongoDBUser
+from app.api.deps import get_current_user
 
 router = APIRouter()
 
 def get_users_db():
     return get_users_collection()
 
+
+@router.get("/me", response_model=MongoDBUser)
+async def get_current_user_profile(
+    current_user: MongoDBUser = Depends(get_current_user)
+):
+    """Get current user profile"""
+    return current_user
+
+@router.put("/me", response_model=MongoDBUser)
+async def update_current_user_profile(
+    user_data: dict,
+    current_user: MongoDBUser = Depends(get_current_user)
+):
+    """Update current user profile"""
+    try:
+        users_collection = get_users_collection()
+        
+        # Prepare update data
+        update_data = {"updated_at": datetime.utcnow()}
+        for field, value in user_data.items():
+            if value is not None:
+                update_data[field] = value
+        
+        # Update user in database
+        result = users_collection.update_one(
+            {"email": current_user.email},
+            {"$set": update_data}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Return updated user
+        updated_user = users_collection.find_one({"email": current_user.email})
+        if updated_user:
+            updated_user["_id"] = str(updated_user["_id"])
+            return MongoDBUser(**updated_user)
+        else:
+            raise HTTPException(status_code=404, detail="User not found")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error updating user profile: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to update profile"
+        )
 
 @router.get("/", response_model=List[MongoDBUser])
 def list_users(

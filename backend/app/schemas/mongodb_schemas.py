@@ -199,6 +199,10 @@ class MongoDBUser(BaseModel):
     name: str
     role: str  # jobseeker, employer, admin
     is_active: bool = True
+    avatar_url: Optional[str] = None
+    phone: Optional[str] = None
+    location: Optional[str] = None
+    bio: Optional[str] = None
     
     # Job Seeker Specific
     skills: List[str] = Field(default_factory=list)
@@ -206,6 +210,13 @@ class MongoDBUser(BaseModel):
     preferred_job_types: List[str] = Field(default_factory=list)
     preferred_locations: List[str] = Field(default_factory=list)
     salary_expectations: Optional[Dict[str, int]] = None
+    expected_salary_min: Optional[int] = None
+    expected_salary_max: Optional[int] = None
+    preferred_job_type: Optional[str] = None
+    preferred_work_mode: Optional[str] = None
+    linkedin_url: Optional[str] = None
+    github_url: Optional[str] = None
+    portfolio_url: Optional[str] = None
     
     # Employer Specific
     company_id: Optional[str] = None

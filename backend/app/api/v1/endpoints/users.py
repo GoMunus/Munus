@@ -59,27 +59,30 @@ def update_current_user_profile(
         )
 
 
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
 @router.post("/change-password")
 def change_password(
-    current_password: str,
-    new_password: str,
+    password_data: ChangePasswordRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Change user password"""
-    from app.core.security import verify_password, get_password_hash
+    import bcrypt
     from app.crud.user import update_user_password
     
     try:
-        # Verify current password
-        if not verify_password(current_password, current_user.hashed_password):
+        # Verify current password - MongoDB stores it as "password" field
+        if not bcrypt.checkpw(password_data.current_password.encode("utf-8"), current_user.password.encode("utf-8")):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Incorrect current password"
             )
         
-        # Update password
-        hashed_password = get_password_hash(new_password)
+        # Update password - MongoDB stores it as "password" field
+        hashed_password = bcrypt.hashpw(password_data.new_password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
         success = update_user_password(db, user_id=current_user.id, hashed_password=hashed_password)
         
         if not success:

@@ -4,6 +4,7 @@ import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Card } from '../ui/Card';
 import { Badge } from '../ui/Badge';
+import { PhotoUpload } from '../ui/PhotoUpload';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import PhoneInput from 'react-phone-input-2';
@@ -98,6 +99,9 @@ export const ProfileCreation: React.FC<ProfileCreationProps> = ({ onComplete, on
   const [otp, setOtp] = useState('');
   const [otpError, setOtpError] = useState('');
   const [otpVerified, setOtpVerified] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string>('');
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [otpLoading, setOtpLoading] = useState(false);
 
   const steps = profileData.userType === 'jobseeker' ? jobSeekerSteps : employerSteps;
@@ -134,6 +138,37 @@ export const ProfileCreation: React.FC<ProfileCreationProps> = ({ onComplete, on
     // Clear error when user starts typing
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
+    }
+  };
+
+  const handlePhotoChange = (file: File) => {
+    setSelectedPhoto(file);
+    // Create preview URL
+    const previewUrl = URL.createObjectURL(file);
+    setPhotoPreview(previewUrl);
+  };
+
+  const handlePhotoRemove = () => {
+    setSelectedPhoto(null);
+    setPhotoPreview('');
+    // If there was a preview URL, revoke it to free memory
+    if (photoPreview) {
+      URL.revokeObjectURL(photoPreview);
+    }
+  };
+
+  const uploadPhoto = async (file: File): Promise<string> => {
+    setIsUploadingPhoto(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const response = await api.upload('/upload/avatar', formData);
+      return response.data.avatar_url;
+    } catch (error) {
+      throw new Error('Failed to upload photo. Please try again.');
+    } finally {
+      setIsUploadingPhoto(false);
     }
   };
 
@@ -247,6 +282,18 @@ export const ProfileCreation: React.FC<ProfileCreationProps> = ({ onComplete, on
     setErrors({}); // Clear any previous errors
     
     try {
+      // Upload photo first if selected
+      let avatarUrl = '';
+      if (selectedPhoto) {
+        try {
+          avatarUrl = await uploadPhoto(selectedPhoto);
+        } catch (error) {
+          setErrors({ general: 'Failed to upload photo. Please try again.' });
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
       // Prepare the registration payload
       const payload = {
         name: `${profileData.firstName} ${profileData.lastName}`,
@@ -255,6 +302,7 @@ export const ProfileCreation: React.FC<ProfileCreationProps> = ({ onComplete, on
         role: profileData.userType,
         phone: profileData.phone,
         location: profileData.location,
+        ...(avatarUrl && { avatar_url: avatarUrl }),
         ...(profileData.userType === 'employer' && { 
           company: profileData.companyName 
         }),
@@ -371,6 +419,15 @@ export const ProfileCreation: React.FC<ProfileCreationProps> = ({ onComplete, on
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, city, profileData.userType]);
 
+  // Cleanup photo preview on unmount
+  useEffect(() => {
+    return () => {
+      if (photoPreview) {
+        URL.revokeObjectURL(photoPreview);
+      }
+    };
+  }, [photoPreview]);
+
   const renderRoleSelection = () => (
     <div className="space-y-6">
       <div className="text-center mb-8">
@@ -469,17 +526,24 @@ export const ProfileCreation: React.FC<ProfileCreationProps> = ({ onComplete, on
   const renderPersonalInfo = () => (
     <div className="space-y-6">
       <div className="text-center mb-8">
-        <div className="w-24 h-24 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4 relative group cursor-pointer">
-          <Camera className="w-8 h-8 text-white" />
-          <div className="absolute inset-0 bg-black/20 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-            <Upload className="w-6 h-6 text-white" />
-          </div>
-        </div>
-        <p className={`text-sm ${
+        <PhotoUpload
+          currentPhoto={photoPreview}
+          onPhotoChange={handlePhotoChange}
+          onPhotoRemove={handlePhotoRemove}
+          disabled={isUploadingPhoto}
+          size="lg"
+          className="mx-auto"
+        />
+        <p className={`text-sm mt-2 ${
           theme === 'light' ? 'text-gray-600' : 'text-gray-400'
         }`}>
           Upload profile picture (optional)
         </p>
+        {isUploadingPhoto && (
+          <p className="text-sm text-blue-600 dark:text-blue-400 mt-2">
+            Uploading photo...
+          </p>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
