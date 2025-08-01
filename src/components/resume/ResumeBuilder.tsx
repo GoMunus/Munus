@@ -65,20 +65,32 @@ export const ResumeBuilder: React.FC = () => {
   const handleDownloadPDF = async () => {
     setIsGeneratingPDF(true);
     try {
+      console.log('Starting PDF generation with data:', resumeData);
+      
       // Generate PDF using the resume service
       const result = await resumeService.generatePDF(resumeData);
+      
+      console.log('PDF generation result:', result);
+      
+      if (!result.pdfContent) {
+        throw new Error('No PDF content received from server');
+      }
       
       // Convert hex string back to bytes
       const pdfBytes = new Uint8Array(
         result.pdfContent.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || []
       );
       
+      if (pdfBytes.length === 0) {
+        throw new Error('Invalid PDF content received');
+      }
+      
       // Create blob and download
       const blob = new Blob([pdfBytes], { type: 'application/pdf' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = result.filename;
+      link.download = result.filename || 'resume.pdf';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

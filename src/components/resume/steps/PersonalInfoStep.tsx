@@ -59,31 +59,6 @@ export const PersonalInfoStep: React.FC<PersonalInfoStepProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Google Drive Import Section */}
-      <div className="p-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-        <div className="flex items-center space-x-3 mb-4">
-          <Upload className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-            Import from Google Drive
-          </h3>
-        </div>
-        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-          Import your existing resume from Google Drive to automatically fill in your information
-        </p>
-        
-        <GoogleDriveImport
-          onFileSelected={handleGoogleDriveImport}
-          onError={handleImportError}
-          disabled={isImporting}
-        />
-        
-        {importError && (
-          <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-            <p className="text-sm text-red-600 dark:text-red-400">{importError}</p>
-          </div>
-        )}
-      </div>
-
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Input
           label="Full Name"
@@ -170,6 +145,31 @@ export const PersonalInfoStep: React.FC<PersonalInfoStepProps> = ({
           onChange={(e) => updateField('portfolio', e.target.value)}
           fullWidth
         />
+      </div>
+
+      {/* Google Drive Import Section */}
+      <div className="p-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+        <div className="flex items-center space-x-3 mb-4">
+          <Upload className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+            Import from Google Drive
+          </h3>
+        </div>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          Import your existing resume from Google Drive to automatically fill in your information
+        </p>
+        
+        <GoogleDriveImport
+          onFileSelected={handleGoogleDriveImport}
+          onError={handleImportError}
+          disabled={isImporting}
+        />
+        
+        {importError && (
+          <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <p className="text-sm text-red-600 dark:text-red-400">{importError}</p>
+          </div>
+        )}
       </div>
     </div>
   );

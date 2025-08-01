@@ -111,6 +111,9 @@ class PDFGenerator:
     def generate_resume_pdf(self, resume_data: Dict[str, Any]) -> bytes:
         """Generate a PDF resume from resume data"""
         try:
+            logger.info("Starting PDF generation")
+            logger.info(f"Resume data keys: {list(resume_data.keys()) if resume_data else 'None'}")
+            
             # Create PDF in memory
             buffer = io.BytesIO()
             doc = SimpleDocTemplate(
@@ -126,12 +129,14 @@ class PDFGenerator:
             story = []
             
             # Add header with name
-            if resume_data.get('personalInfo', {}).get('name'):
-                story.append(Paragraph(
-                    resume_data['personalInfo']['name'],
-                    self.styles['ResumeHeader']
-                ))
-                story.append(Spacer(1, 12))
+            personal_info = resume_data.get('personalInfo', {})
+            name = personal_info.get('name', 'Resume')
+            
+            story.append(Paragraph(
+                name,
+                self.styles['ResumeHeader']
+            ))
+            story.append(Spacer(1, 12))
             
             # Add contact information
             contact_info = self._build_contact_info(resume_data.get('personalInfo', {}))
@@ -214,17 +219,17 @@ class PDFGenerator:
         contact_parts = []
         
         if personal_info.get('email'):
-            contact_parts.append(f"📧 {personal_info['email']}")
+            contact_parts.append(f"Email: {personal_info['email']}")
         if personal_info.get('phone'):
-            contact_parts.append(f"📱 {personal_info['phone']}")
+            contact_parts.append(f"Phone: {personal_info['phone']}")
         if personal_info.get('location'):
-            contact_parts.append(f"📍 {personal_info['location']}")
+            contact_parts.append(f"Location: {personal_info['location']}")
         if personal_info.get('linkedIn'):
-            contact_parts.append(f"💼 {personal_info['linkedIn']}")
+            contact_parts.append(f"LinkedIn: {personal_info['linkedIn']}")
         if personal_info.get('github'):
-            contact_parts.append(f"🐙 {personal_info['github']}")
+            contact_parts.append(f"GitHub: {personal_info['github']}")
         if personal_info.get('portfolio'):
-            contact_parts.append(f"🌐 {personal_info['portfolio']}")
+            contact_parts.append(f"Portfolio: {personal_info['portfolio']}")
         
         if contact_parts:
             contact_text = " | ".join(contact_parts)

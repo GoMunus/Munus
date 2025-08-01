@@ -159,17 +159,20 @@ def set_default_resume(
 
 @router.post("/generate-pdf")
 async def generate_resume_pdf(
-    resume_data: dict,
-    current_user: User = Depends(get_current_user)
+    resume_data: dict
 ):
     """Generate a PDF for the resume from provided data"""
     try:
+        logger.info(f"Generating PDF for resume data: {resume_data.keys()}")
+        
         # Generate PDF from resume data
         pdf_content = pdf_generator.generate_resume_pdf(resume_data)
         
         # Create filename
         name = resume_data.get('personalInfo', {}).get('name', 'resume')
         filename = f"{name.replace(' ', '_').lower()}_resume.pdf"
+        
+        logger.info(f"PDF generated successfully, filename: {filename}")
         
         return {
             "success": True,
@@ -184,6 +187,38 @@ async def generate_resume_pdf(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to generate PDF: {str(e)}"
         )
+
+
+@router.get("/test-pdf")
+async def test_pdf_generation():
+    """Test PDF generation with sample data"""
+    sample_data = {
+        "personalInfo": {
+            "name": "John Doe",
+            "email": "john.doe@example.com",
+            "phone": "+1 234 567 8900",
+            "location": "San Francisco, CA"
+        },
+        "experience": [],
+        "education": [],
+        "skills": ["Python", "JavaScript", "React"],
+        "projects": [],
+        "certifications": []
+    }
+    
+    try:
+        pdf_content = pdf_generator.generate_resume_pdf(sample_data)
+        return {
+            "success": True,
+            "message": "Test PDF generated successfully",
+            "pdf_size": len(pdf_content)
+        }
+    except Exception as e:
+        logger.error(f"Test PDF generation failed: {e}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
 
 
 @router.post("/{resume_id}/upload-video")
