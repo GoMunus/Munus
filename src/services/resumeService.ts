@@ -194,6 +194,19 @@ class ResumeService {
       throw new Error(error.response?.data?.detail || 'Failed to set default resume');
     }
   }
+
+  async parseGoogleDriveResume(file: File, metadata: any): Promise<any> {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('metadata', JSON.stringify(metadata));
+
+      const response = await api.upload<any>('/resumes/parse-google-drive', formData);
+      return response.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.detail || 'Failed to parse Google Drive resume');
+    }
+  }
 }
 
 export const resumeService = new ResumeService();

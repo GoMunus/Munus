@@ -1,7 +1,9 @@
-import React from 'react';
-import { Sparkles } from 'lucide-react';
+import React, { useState } from 'react';
+import { Sparkles, Upload } from 'lucide-react';
 import { Input } from '../../ui/Input';
 import { Button } from '../../ui/Button';
+import { GoogleDriveImport } from '../GoogleDriveImport';
+import { resumeService } from '../../../services/resumeService';
 import type { PersonalInfo } from '../../../types';
 
 interface PersonalInfoStepProps {
@@ -13,6 +15,9 @@ export const PersonalInfoStep: React.FC<PersonalInfoStepProps> = ({
   data,
   onChange,
 }) => {
+  const [isImporting, setIsImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+
   const updateField = (field: keyof PersonalInfo, value: string) => {
     onChange({ ...data, [field]: value });
   };
@@ -24,8 +29,61 @@ export const PersonalInfoStep: React.FC<PersonalInfoStepProps> = ({
     updateField('summary', aiSummary);
   };
 
+  const handleGoogleDriveImport = async (file: File, metadata: any) => {
+    setIsImporting(true);
+    setImportError(null);
+    
+    try {
+      // Use resume service to parse the file
+      const parsedData = await resumeService.parseGoogleDriveResume(file, metadata);
+      
+      // Update form fields with parsed data
+      if (parsedData.data && parsedData.data.personalInfo) {
+        onChange({
+          ...data,
+          ...parsedData.data.personalInfo,
+        });
+      }
+      
+    } catch (error) {
+      console.error('Resume import error:', error);
+      setImportError(error instanceof Error ? error.message : 'Failed to import resume');
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  const handleImportError = (error: string) => {
+    setImportError(error);
+  };
+
   return (
     <div className="space-y-6">
+      {/* Google Drive Import Section */}
+      <div className="p-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+        <div className="flex items-center space-x-3 mb-4">
+          <Upload className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+            Import from Google Drive
+          </h3>
+        </div>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          Import your existing resume from Google Drive to automatically fill in your information
+        </p>
+        
+        <GoogleDriveImport
+          onFileSelected={handleGoogleDriveImport}
+          onError={handleImportError}
+          disabled={isImporting}
+        />
+        
+        {importError && (
+          <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <p className="text-sm text-red-600 dark:text-red-400">{importError}</p>
+          </div>
+        )}
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Input
           label="Full Name"

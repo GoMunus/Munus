@@ -1,12 +1,17 @@
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
-# from sqlalchemy.orm import Session  # Removed for MongoDB-only setup
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from app.db.database import get_db
 from app.api.deps import get_current_user
 from app.models.user import User
 from app.models.resume import Resume
 from app.schemas.resume import ResumeCreate, ResumeUpdate, ResumeResponse
+from app.services.google_drive_service import google_drive_service
 import os
+import json
+
+# For MongoDB compatibility, we'll use a mock Session type
+class Session:
+    pass
 
 router = APIRouter()
 
@@ -211,3 +216,76 @@ def upload_resume_audio(
     # Save file (mock)
     voice_url = f"/uploads/audio/{resume_id}_audio.mp3"
     return {"voice_url": voice_url}
+
+
+@router.post("/parse-google-drive")
+async def parse_google_drive_resume(
+    file: UploadFile = File(...),
+    metadata: str = Form(...),
+    current_user: User = Depends(get_current_user)
+):
+    """Parse resume from Google Drive file"""
+    try:
+        # Parse metadata
+        file_metadata = json.loads(metadata)
+        file_id = file_metadata.get('id')
+        mime_type = file_metadata.get('mimeType')
+        
+        if not file_id or not mime_type:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid file metadata"
+            )
+        
+        # Validate file type
+        allowed_types = [
+            'application/pdf',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        ]
+        
+        if mime_type not in allowed_types:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Unsupported file type. Only PDF and DOCX files are supported."
+            )
+        
+        # Validate file size (10MB limit)
+        if file.size and file.size > 10 * 1024 * 1024:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="File size must be less than 10MB."
+            )
+        
+        # For now, we'll parse the uploaded file directly
+        # In a production environment, you might want to use the Google Drive API
+        # to download the file using the file_id and access token
+        
+        file_content = await file.read()
+        
+        # Parse based on file type
+        if mime_type == 'application/pdf':
+            parsed_data = google_drive_service.parse_pdf_content(file_content)
+        elif mime_type == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+            parsed_data = google_drive_service.parse_docx_content(file_content)
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Unsupported file type"
+            )
+        
+        return {
+            "success": True,
+            "message": "Resume parsed successfully",
+            "data": parsed_data
+        }
+        
+    except json.JSONDecodeError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid metadata format"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to parse resume: {str(e)}"
+        )
