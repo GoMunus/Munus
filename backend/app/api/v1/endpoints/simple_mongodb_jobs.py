@@ -217,9 +217,13 @@ async def get_recent_jobs(
 async def apply_to_job(job_id: str, application_data: Dict[str, Any]):
     """Apply to a job (simplified version)"""
     try:
+        print(f"🔍 Applying to job: {job_id}")
+        print(f"📝 Application data: {application_data}")
+        
         # Check if job exists and is published
         job = await db.jobs.find_one({"_id": ObjectId(job_id)})
         if not job:
+            print(f"❌ Job not found: {job_id}")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Job not found"
@@ -243,11 +247,15 @@ async def apply_to_job(job_id: str, application_data: Dict[str, Any]):
         result = await db.job_applications.insert_one(application_data)
         application_data["_id"] = str(result.inserted_id)
         
+        print(f"✅ Application created successfully: {result.inserted_id}")
+        
         # Increment applications count for the job
         await db.jobs.update_one(
             {"_id": ObjectId(job_id)},
             {"$inc": {"applications_count": 1}}
         )
+        
+        print(f"📊 Updated applications count for job: {job_id}")
         
         # Send notification to employer about new application
         try:

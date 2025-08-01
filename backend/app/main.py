@@ -12,7 +12,7 @@ from app.core.config import settings
 from app.db.mongodb import connect_to_mongo, close_mongo_connection
 from app.api.v1.endpoints import (
     mongodb_jobs_clean, mongodb_users, mongodb_notifications, 
-    mongodb_companies, health, auth, upload, ai_chat, resumes
+    mongodb_companies, health, auth, upload, ai_chat, resumes, simple_mongodb_jobs
 )
 from pydantic import BaseModel
 from twilio.rest import Client
@@ -115,6 +115,7 @@ async def health_check():
 
 # Include all MongoDB endpoints at their original paths
 app.include_router(mongodb_jobs_clean.router, prefix=f"{settings.API_V1_STR}/jobs", tags=["jobs"])
+app.include_router(simple_mongodb_jobs.router, prefix=f"{settings.API_V1_STR}/mongodb-jobs", tags=["simple-jobs"])
 app.include_router(mongodb_users.router, prefix=f"{settings.API_V1_STR}/users", tags=["users"])
 app.include_router(mongodb_notifications.router, prefix=f"{settings.API_V1_STR}/notifications", tags=["notifications"])
 app.include_router(mongodb_companies.router, prefix=f"{settings.API_V1_STR}/companies", tags=["companies"])
