@@ -207,6 +207,23 @@ class ResumeService {
       throw new Error(error.response?.data?.detail || 'Failed to parse Google Drive resume');
     }
   }
+
+  async generatePDF(resumeData: any): Promise<{ filename: string; pdfContent: string }> {
+    try {
+      const response = await api.post<any>('/resumes/generate-pdf', resumeData);
+      
+      if (response.data.success) {
+        return {
+          filename: response.data.filename,
+          pdfContent: response.data.pdf_content
+        };
+      } else {
+        throw new Error('Failed to generate PDF');
+      }
+    } catch (error: any) {
+      throw new Error(error.response?.data?.detail || 'Failed to generate PDF');
+    }
+  }
 }
 
 export const resumeService = new ResumeService();

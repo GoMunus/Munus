@@ -6,8 +6,12 @@ from app.models.user import User
 from app.models.resume import Resume
 from app.schemas.resume import ResumeCreate, ResumeUpdate, ResumeResponse
 from app.services.google_drive_service import google_drive_service
+from app.services.pdf_generator import pdf_generator
 import os
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 # For MongoDB compatibility, we'll use a mock Session type
 class Session:
@@ -153,25 +157,33 @@ def set_default_resume(
     return {"message": "Resume set as default"}
 
 
-@router.post("/{resume_id}/generate-pdf")
-def generate_resume_pdf(
-    resume_id: int,
-    db: Session = Depends(get_db),
+@router.post("/generate-pdf")
+async def generate_resume_pdf(
+    resume_data: dict,
     current_user: User = Depends(get_current_user)
 ):
-    """Generate a PDF for the resume (mock implementation)"""
-    resume = db.query(Resume).filter(
-        Resume.id == resume_id,
-        Resume.user_id == current_user.id
-    ).first()
-    if not resume:
+    """Generate a PDF for the resume from provided data"""
+    try:
+        # Generate PDF from resume data
+        pdf_content = pdf_generator.generate_resume_pdf(resume_data)
+        
+        # Create filename
+        name = resume_data.get('personalInfo', {}).get('name', 'resume')
+        filename = f"{name.replace(' ', '_').lower()}_resume.pdf"
+        
+        return {
+            "success": True,
+            "message": "PDF generated successfully",
+            "filename": filename,
+            "pdf_content": pdf_content.hex()  # Convert bytes to hex for JSON transmission
+        }
+        
+    except Exception as e:
+        logger.error(f"Error generating PDF: {e}")
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Resume not found"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate PDF: {str(e)}"
         )
-    # Mock PDF URL
-    pdf_url = f"/uploads/resumes/{resume_id}_resume.pdf"
-    return {"pdf_url": pdf_url}
 
 
 @router.post("/{resume_id}/upload-video")

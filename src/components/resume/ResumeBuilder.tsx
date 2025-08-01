@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileText, User, Briefcase, GraduationCap, Award, Video, Mic, Download, Eye } from 'lucide-react';
+import { FileText, User, Briefcase, GraduationCap, Award, Video, Mic, Download, Eye, Loader2 } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { PersonalInfoStep } from './steps/PersonalInfoStep';
@@ -8,6 +8,8 @@ import { EducationStep } from './steps/EducationStep';
 import { SkillsStep } from './steps/SkillsStep';
 import { VideoResumeStep } from './steps/VideoResumeStep';
 import { PreviewStep } from './steps/PreviewStep';
+import { resumeService } from '../../services/resumeService';
+import { Toast } from '../common/Toast';
 import type { Resume } from '../../types';
 
 const steps = [
@@ -21,6 +23,11 @@ const steps = [
 
 export const ResumeBuilder: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(0);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState<'success' | 'error'>('success');
+  
   const [resumeData, setResumeData] = useState<Partial<Resume>>({
     personalInfo: {
       name: '',
@@ -52,6 +59,42 @@ export const ResumeBuilder: React.FC = () => {
   const prevStep = () => {
     if (currentStep > 0) {
       setCurrentStep(currentStep - 1);
+    }
+  };
+
+  const handleDownloadPDF = async () => {
+    setIsGeneratingPDF(true);
+    try {
+      // Generate PDF using the resume service
+      const result = await resumeService.generatePDF(resumeData);
+      
+      // Convert hex string back to bytes
+      const pdfBytes = new Uint8Array(
+        result.pdfContent.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || []
+      );
+      
+      // Create blob and download
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = result.filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      setToastMessage('PDF downloaded successfully!');
+      setToastType('success');
+      setShowToast(true);
+      
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      setToastMessage(error instanceof Error ? error.message : 'Failed to generate PDF');
+      setToastType('error');
+      setShowToast(true);
+    } finally {
+      setIsGeneratingPDF(false);
     }
   };
 
@@ -202,9 +245,11 @@ export const ResumeBuilder: React.FC = () => {
                   <>
                     <Button
                       variant="secondary"
-                      icon={<Download className="w-4 h-4" />}
+                      icon={isGeneratingPDF ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                      onClick={handleDownloadPDF}
+                      disabled={isGeneratingPDF}
                     >
-                      Download PDF
+                      {isGeneratingPDF ? 'Generating PDF...' : 'Download PDF'}
                     </Button>
                     <Button
                       variant="primary"
@@ -223,6 +268,15 @@ export const ResumeBuilder: React.FC = () => {
           </Card>
         </div>
       </div>
+
+      {/* Toast Notification */}
+      {showToast && (
+        <Toast
+          message={toastMessage}
+          type={toastType}
+          onClose={() => setShowToast(false)}
+        />
+      )}
     </div>
   );
 };
