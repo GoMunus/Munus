@@ -105,14 +105,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
         console.log('🔐 Starting login process...', { email: formData.email, role: userType });
         await login(formData.email, formData.password, userType);
         console.log('✅ Login successful, closing modal and triggering routing...');
-        // After successful login, trigger the proper routing
+        // Close modal immediately after successful login
         onClose();
-        // Wait a moment for the auth state to update, then trigger routing
-        setTimeout(() => {
-          console.log('🔄 Triggering onGetStarted for routing...');
-          onGetStarted?.();
-        }, 100);
+        // Trigger routing immediately - the AuthContext will handle the redirect
+        onGetStarted?.();
       } else {
+        console.log('📝 Starting registration process...', { email: formData.email, role: userType });
         await register({
           name: formData.name,
           email: formData.email,
@@ -120,12 +118,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           role: userType,
           ...(userType === 'employer' && { company: formData.company }),
         });
-        // After successful registration, trigger the proper routing
+        console.log('✅ Registration successful, closing modal and triggering routing...');
+        // Close modal immediately after successful registration
         onClose();
-        // Wait a moment for the auth state to update, then trigger routing
-        setTimeout(() => {
-          onGetStarted?.();
-        }, 100);
+        // Trigger routing immediately - the AuthContext will handle the redirect
+        onGetStarted?.();
       }
     } catch (error: any) {
       console.error('Authentication error:', error);

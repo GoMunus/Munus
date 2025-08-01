@@ -547,6 +547,22 @@ async def update_application_status(
                 detail="Application not found"
             )
         
+        # Send notification to job seeker about status update
+        try:
+            from app.services.notification_service import notification_service
+            await notification_service.create_application_status_notification(
+                applicant_id=updated_application.applicant_id,
+                job_title=job.title,
+                company_name=job.company_name or "Company",
+                status=status.value,
+                job_id=updated_application.job_id,
+                application_id=application_id
+            )
+            logger.info(f"Notification sent to applicant {updated_application.applicant_id} for status: {status}")
+        except Exception as notification_error:
+            logger.error(f"Failed to send notification: {notification_error}")
+            # Don't fail the request if notification fails
+        
         return updated_application
     except HTTPException:
         raise

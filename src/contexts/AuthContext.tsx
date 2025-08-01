@@ -9,6 +9,7 @@ interface AuthContextValue {
   register: (userData: RegisterRequest) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
+  updateUser: (userData: User) => void;
   loading: boolean;
   isAuthenticated: boolean;
   isJobSeeker: boolean;
@@ -37,13 +38,42 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     const initializeAuth = async () => {
       try {
+        console.log('🔄 Initializing auth state...');
         const storedUser = authService.getCurrentUser();
-        if (storedUser) {
-          setUser(storedUser);
+        const hasToken = authService.isAuthenticated();
+        
+        console.log('📋 Auth initialization check:', {
+          hasStoredUser: !!storedUser,
+          hasToken: hasToken,
+          storedUserRole: storedUser?.role
+        });
+        
+        if (storedUser && hasToken) {
+          console.log('✅ Found valid user session, setting user state');
+          // Ensure the user object has the correct structure
+          const validatedUser = {
+            ...storedUser,
+            id: storedUser.id || storedUser._id,
+            role: storedUser.role
+          };
+          console.log('🔧 Validated user object:', validatedUser);
+          setUser(validatedUser);
+        } else if (storedUser && !hasToken) {
+          console.warn('⚠️ Found user data but no token, clearing invalid session');
+          authService.logout();
+          setUser(null);
+        } else if (!storedUser && hasToken) {
+          console.warn('⚠️ Found token but no user data, clearing invalid session');
+          authService.logout();
+          setUser(null);
+        } else {
+          console.log('ℹ️ No valid session found');
+          setUser(null);
         }
       } catch (error) {
-        console.error('Failed to initialize auth:', error);
+        console.error('❌ Failed to initialize auth:', error);
         authService.logout();
+        setUser(null);
       } finally {
         setLoading(false);
       }
@@ -58,15 +88,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       const response = await authService.login(email, password, role);
       console.log('✅ Login response received', { user: response.user });
+      
+      // Set user immediately
       setUser(response.user);
-      // Force a refresh to ensure the state is properly updated
-      setTimeout(() => {
-        const storedUser = authService.getCurrentUser();
-        console.log('🔄 Refreshing user state', { storedUser });
-        if (storedUser) {
-          setUser(storedUser);
-        }
-      }, 100);
+      console.log('👤 User state set to:', response.user);
+      
+      // Verify the user was stored correctly
+      const storedUser = authService.getCurrentUser();
+      console.log('🔄 Verifying stored user:', storedUser);
+      
+      if (!storedUser) {
+        console.warn('⚠️ User not found in localStorage after login');
+      }
     } catch (error) {
       console.error('❌ Login error:', error);
       throw error;
@@ -86,15 +119,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setUser(response.user);
       console.log('👤 User state set to:', response.user);
       
-      // Force a refresh to ensure the state is properly updated
-      setTimeout(() => {
-        const storedUser = authService.getCurrentUser();
-        console.log('🔄 Refreshing user state from localStorage:', storedUser);
-        if (storedUser) {
-          setUser(storedUser);
-          console.log('✅ User state refreshed from localStorage');
-        }
-      }, 200);
+      // Verify the user was stored correctly
+      const storedUser = authService.getCurrentUser();
+      console.log('🔄 Verifying stored user:', storedUser);
+      
+      if (!storedUser) {
+        console.warn('⚠️ User not found in localStorage after registration');
+      }
     } catch (error) {
       console.error('❌ Registration error:', error);
       throw error;
@@ -128,6 +159,31 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const updateUser = (userData: User) => {
+    console.log('🔄 AuthContext updateUser called with:', userData);
+    setUser(userData);
+    // Also update localStorage
+    authService.setCurrentUser(userData);
+  };
+
+  // Debug role detection
+  const isJobSeeker = user?.role === 'jobseeker';
+  const isEmployer = user?.role === 'employer';
+  
+  console.log('🔍 AuthContext role detection:', {
+    user: user?.email,
+    role: user?.role,
+    isJobSeeker,
+    isEmployer,
+    isAuthenticated: !!user,
+    userObject: user
+  });
+
+  // Additional validation to ensure role is properly set
+  if (user && !user.role) {
+    console.warn('⚠️ User object missing role property:', user);
+  }
+
   return (
     <AuthContext.Provider
       value={{
@@ -136,10 +192,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         register,
         logout,
         refreshUser,
+        updateUser,
         loading,
         isAuthenticated: !!user,
-        isJobSeeker: user?.role === 'jobseeker',
-        isEmployer: user?.role === 'employer',
+        isJobSeeker,
+        isEmployer,
       }}
     >
       {children}

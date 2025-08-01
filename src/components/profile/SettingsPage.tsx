@@ -102,12 +102,17 @@ export const SettingsPage: React.FC = () => {
 
   const handleProfileSave = async () => {
     setSaving(true);
+    setMessage(null); // Clear any previous messages
     try {
+      console.log('SettingsPage: Saving profile with data:', profileData);
       const updatedUser = await userService.updateProfile(profileData);
+      console.log('SettingsPage: Profile save successful:', updatedUser);
       updateUser(updatedUser);
       setMessage({ type: 'success', text: 'Profile updated successfully!' });
     } catch (error: any) {
-      setMessage({ type: 'error', text: error.message || 'Failed to update profile' });
+      console.error('SettingsPage: Profile save failed:', error);
+      const errorMessage = error?.message || 'Failed to update profile';
+      setMessage({ type: 'error', text: errorMessage });
     } finally {
       setSaving(false);
     }

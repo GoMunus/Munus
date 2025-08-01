@@ -15,14 +15,18 @@ def main():
     print("🚀 Starting SkillGlide Backend Server...")
     print(f"📁 Working directory: {backend_dir}")
     
-    # Create database tables
-    print("📊 Setting up database...")
+    # Check MongoDB connection
+    print("📊 Checking MongoDB connection...")
     try:
-        from app.db.database import create_tables
-        create_tables()
-        print("✅ Database setup complete")
+        from app.db.database import check_mongodb_health
+        import asyncio
+        health_result = asyncio.run(check_mongodb_health())
+        if health_result["status"] == "healthy":
+            print("✅ MongoDB connection successful")
+        else:
+            print(f"⚠️  MongoDB connection warning: {health_result.get('error', 'Unknown error')}")
     except Exception as e:
-        print(f"⚠️  Database setup warning: {e}")
+        print(f"⚠️  MongoDB connection warning: {e}")
     
     # Start the server
     print("🌐 Starting FastAPI server on http://localhost:8000")

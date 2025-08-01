@@ -187,6 +187,33 @@ class JobService {
       return [];
     }
   }
+
+  async updateApplicationStatus(applicationId: string, status: string, notes?: string): Promise<any> {
+    try {
+      console.log('JobService: Updating application status:', { applicationId, status, notes });
+      const response = await api.put(`/jobs/applications/${applicationId}/status`, {
+        status,
+        notes
+      });
+      console.log('JobService: Application status updated successfully:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('JobService: Error updating application status:', error);
+      throw error;
+    }
+  }
+
+  async simpleApplyForJob(jobId: string, data: any): Promise<any> {
+    try {
+      console.log('JobService: Applying to job (simple):', jobId);
+      const response = await api.post(`/mongodb-jobs/${jobId}/apply`, data);
+      console.log('JobService: Simple application submitted successfully:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('JobService: Error applying to job (simple):', error);
+      throw error;
+    }
+  }
 }
 
 export const jobService = new JobService();

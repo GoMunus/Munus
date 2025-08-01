@@ -28,25 +28,33 @@ async def update_current_user_profile(
     try:
         users_collection = get_users_collection()
         
+        print(f"Updating profile for user: {current_user.email}")
+        print(f"Update data received: {user_data}")
+        
         # Prepare update data
         update_data = {"updated_at": datetime.utcnow()}
         for field, value in user_data.items():
             if value is not None:
                 update_data[field] = value
         
+        print(f"Final update data: {update_data}")
+        
         # Update user in database
-        result = users_collection.update_one(
+        result = await users_collection.update_one(
             {"email": current_user.email},
             {"$set": update_data}
         )
+        
+        print(f"Update result: matched={result.matched_count}, modified={result.modified_count}")
         
         if result.matched_count == 0:
             raise HTTPException(status_code=404, detail="User not found")
         
         # Return updated user
-        updated_user = users_collection.find_one({"email": current_user.email})
+        updated_user = await users_collection.find_one({"email": current_user.email})
         if updated_user:
             updated_user["_id"] = str(updated_user["_id"])
+            print(f"Returning updated user: {updated_user.get('name', 'Unknown')}")
             return MongoDBUser(**updated_user)
         else:
             raise HTTPException(status_code=404, detail="User not found")
@@ -55,9 +63,11 @@ async def update_current_user_profile(
         raise
     except Exception as e:
         print(f"Error updating user profile: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update profile"
+            detail=f"Failed to update profile: {str(e)}"
         )
 
 @router.get("/", response_model=List[MongoDBUser])

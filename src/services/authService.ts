@@ -35,11 +35,18 @@ class AuthService {
       const response = await api.post('/auth/login', { email, password, role });
       const { access_token, user } = response.data;
       
+      // Transform user data to match frontend expectations
+      const transformedUser = {
+        ...user,
+        id: user._id, // Map MongoDB _id to frontend id
+        role: user.role // Ensure role is properly set
+      };
+      
       // Store user data and token
       localStorage.setItem('skillglide-access-token', access_token);
-      localStorage.setItem('skillglide-user', JSON.stringify(user));
+      localStorage.setItem('skillglide-user', JSON.stringify(transformedUser));
       
-      return response.data;
+      return { ...response.data, user: transformedUser };
     } catch (error: any) {
       const errorMessage = error.response?.data?.detail || 'Login failed. Please check your credentials.';
       throw new Error(errorMessage);
@@ -68,11 +75,18 @@ class AuthService {
 
       const response = await api.post('/auth/register/', payload);
       
+      // Transform user data to match frontend expectations
+      const transformedUser = {
+        ...response.data.user,
+        id: response.data.user._id, // Map MongoDB _id to frontend id
+        role: response.data.user.role // Ensure role is properly set
+      };
+      
       // Store user data and token
-      localStorage.setItem('skillglide-user', JSON.stringify(response.data.user));
+      localStorage.setItem('skillglide-user', JSON.stringify(transformedUser));
       localStorage.setItem('skillglide-access-token', response.data.access_token);
       
-      return response.data;
+      return { ...response.data, user: transformedUser };
     } catch (error: any) {
       const errorMessage = error.response?.data?.detail || 'Registration failed. Please try again.';
       throw new Error(errorMessage);
@@ -92,10 +106,27 @@ class AuthService {
   getCurrentUser(): User | null {
     try {
       const userStr = localStorage.getItem('skillglide-user');
-      return userStr ? JSON.parse(userStr) : null;
+      if (!userStr) return null;
+      
+      const user = JSON.parse(userStr);
+      
+      // Ensure the user object has the correct structure
+      return {
+        ...user,
+        id: user.id || user._id, // Handle both id and _id
+        role: user.role // Ensure role is present
+      };
     } catch (error) {
       console.error('Error getting current user:', error);
       return null;
+    }
+  }
+
+  setCurrentUser(user: User): void {
+    try {
+      localStorage.setItem('skillglide-user', JSON.stringify(user));
+    } catch (error) {
+      console.error('Error setting current user:', error);
     }
   }
 

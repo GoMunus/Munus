@@ -12,7 +12,6 @@ import {
   Users, 
   Eye, 
   Trash2, 
-  Calendar, 
   MapPin, 
   DollarSign, 
   AlertTriangle, 
@@ -25,16 +24,9 @@ import {
   Activity,
   Clock,
   RefreshCw,
-  Building,
-  Target,
-  Zap,
-  Search,
-  Bookmark,
-  Send,
   CheckCircle,
   AlertCircle,
-  ChevronRight,
-  ChevronLeft
+  ExternalLink
 } from 'lucide-react';
 import type { JobResponse } from '../../services/jobService';
 
@@ -45,6 +37,21 @@ interface Application {
   cover_letter: string;
   status: string;
   created_at: string;
+  // Enhanced application data
+  years_of_experience?: string;
+  relevant_skills?: string;
+  work_authorization?: string;
+  notice_period?: string;
+  remote_work_preference?: string;
+  relocation_willingness?: string;
+  why_interested?: string;
+  biggest_achievement?: string;
+  availability_start_date?: string;
+  additional_languages?: string;
+  resume_url?: string;
+  portfolio_url?: string;
+  linkedin_url?: string;
+  github_url?: string;
 }
 
 interface DeleteJobDialog {
@@ -73,6 +80,9 @@ export const EmployerDashboard: React.FC<EmployerDashboardProps> = ({ onNavigate
   });
   const [deletingJob, setDeletingJob] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [updatingApplicationId, setUpdatingApplicationId] = useState<string | null>(null);
+  const [selectedApplication, setSelectedApplication] = useState<Application | null>(null);
+  const [isApplicationDetailOpen, setIsApplicationDetailOpen] = useState(false);
   const { user } = useAuth();
   const { theme } = useTheme();
   const { toasts, removeToast, success, error: showError } = useToast();
@@ -106,9 +116,7 @@ export const EmployerDashboard: React.FC<EmployerDashboardProps> = ({ onNavigate
     }
   };
 
-  const handleJobPosted = () => {
-    fetchJobs();
-  };
+
 
   const openDeleteDialog = (job: JobResponse) => {
     setDeleteDialog({
@@ -126,6 +134,33 @@ export const EmployerDashboard: React.FC<EmployerDashboardProps> = ({ onNavigate
       jobTitle: '',
       applicationsCount: 0
     });
+  };
+
+  const handleApplicationStatusUpdate = async (applicationId: string, status: string, notes?: string) => {
+    try {
+      setUpdatingApplicationId(applicationId);
+      await jobService.updateApplicationStatus(applicationId, status, notes);
+      
+      // Refresh applications for the current job
+      if (selectedJob) {
+        await fetchApplications(selectedJob);
+      }
+      
+      success(
+        'Status Updated', 
+        `Application ${status === 'accepted' ? 'accepted' : 'rejected'} successfully!`
+      );
+    } catch (error: any) {
+      console.error('Error updating application status:', error);
+      showError('Update Failed', error.message || 'Failed to update application status');
+    } finally {
+      setUpdatingApplicationId(null);
+    }
+  };
+
+  const openApplicationDetail = (application: Application) => {
+    setSelectedApplication(application);
+    setIsApplicationDetailOpen(true);
   };
 
   const handleDeleteJob = async () => {
@@ -154,14 +189,6 @@ export const EmployerDashboard: React.FC<EmployerDashboardProps> = ({ onNavigate
   useEffect(() => {
     fetchJobs();
   }, []);
-
-  const formatSalary = (min?: number, max?: number) => {
-    if (!min && !max) return 'Not specified';
-    if (min && max) return `₹${min.toLocaleString()} - ₹${max.toLocaleString()}`;
-    if (min) return `₹${min.toLocaleString()}+`;
-    if (max) return `Up to ₹${max.toLocaleString()}`;
-    return 'Not specified';
-  };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString();
@@ -218,17 +245,6 @@ export const EmployerDashboard: React.FC<EmployerDashboardProps> = ({ onNavigate
       trend: 'neutral'
     }
   ];
-
-  const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case 'active': return 'success';
-      case 'paused': return 'warning';
-      case 'new': return 'primary';
-      case 'reviewed': return 'secondary';
-      case 'shortlisted': return 'success';
-      default: return 'default';
-    }
-  };
 
   if (loading) {
     return (
@@ -654,39 +670,379 @@ export const EmployerDashboard: React.FC<EmployerDashboardProps> = ({ onNavigate
                     </p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-6">
                     {applications.map((app) => (
-                      <Card key={app._id} className="p-4 hover-lift transition-all duration-300">
-                        <div className="flex justify-between items-start mb-3">
-                          <div>
-                            <h4 className="font-semibold text-gray-900 dark:text-white">
+                      <Card key={app._id} className="p-6 hover-lift transition-all duration-300 border-l-4 border-l-blue-500">
+                        <div className="flex justify-between items-start mb-4">
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-lg text-gray-900 dark:text-white">
                               {app.applicant_name}
                             </h4>
-                            <p className="text-gray-600 dark:text-gray-400 text-sm">
+                            <p className="text-gray-600 dark:text-gray-400 text-sm mb-2">
                               {app.applicant_email}
                             </p>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                              Applied: {formatDate(app.created_at)}
+                            </div>
                           </div>
-                          <Badge variant="outline">
-                            {app.status}
-                          </Badge>
+                          <div className="flex items-center space-x-3">
+                            <Badge 
+                              variant={
+                                app.status === 'accepted' ? 'success' : 
+                                app.status === 'rejected' ? 'error' : 
+                                'outline'
+                              }
+                            >
+                              {app.status}
+                            </Badge>
+                          </div>
                         </div>
-                        
-                        <div className="mb-3">
-                          <p className="text-sm text-gray-600 dark:text-gray-400">
-                            <strong>Cover Letter:</strong>
-                          </p>
-                          <p className="text-sm text-gray-700 dark:text-gray-300 mt-1">
-                            {app.cover_letter}
-                          </p>
+
+                        {/* Quick Info Grid */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                          {app.years_of_experience && (
+                            <div>
+                              <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Experience</p>
+                              <p className="text-sm text-gray-900 dark:text-white">{app.years_of_experience}</p>
+                            </div>
+                          )}
+                          {app.work_authorization && (
+                            <div>
+                              <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Work Auth</p>
+                              <p className="text-sm text-gray-900 dark:text-white">{app.work_authorization}</p>
+                            </div>
+                          )}
+                          {app.notice_period && (
+                            <div>
+                              <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Notice Period</p>
+                              <p className="text-sm text-gray-900 dark:text-white">{app.notice_period}</p>
+                            </div>
+                          )}
+                          {app.availability_start_date && (
+                            <div>
+                              <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Available From</p>
+                              <p className="text-sm text-gray-900 dark:text-white">{app.availability_start_date}</p>
+                            </div>
+                          )}
                         </div>
-                        
-                        <div className="text-xs text-gray-500 dark:text-gray-400">
-                          Applied: {formatDate(app.created_at)}
+
+                        {/* Cover Letter Preview */}
+                        {app.cover_letter && (
+                          <div className="mb-4">
+                            <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">Cover Letter:</p>
+                            <p className="text-sm text-gray-700 dark:text-gray-300 line-clamp-3">
+                              {app.cover_letter}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Skills */}
+                        {app.relevant_skills && (
+                          <div className="mb-4">
+                            <p className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2">Relevant Skills:</p>
+                            <p className="text-sm text-gray-700 dark:text-gray-300">
+                              {app.relevant_skills}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Action Buttons */}
+                        <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openApplicationDetail(app)}
+                            className="text-blue-600 hover:text-blue-700"
+                          >
+                            <Eye className="w-4 h-4 mr-2" />
+                            View Details
+                          </Button>
+                          
+                          {app.status === 'pending' && (
+                            <div className="flex space-x-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleApplicationStatusUpdate(app._id, 'rejected')}
+                                disabled={updatingApplicationId === app._id}
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 border-red-300"
+                              >
+                                {updatingApplicationId === app._id ? (
+                                  <LoadingSpinner size="sm" />
+                                ) : (
+                                  <>
+                                    <AlertCircle className="w-4 h-4 mr-2" />
+                                    Reject
+                                  </>
+                                )}
+                              </Button>
+                              <Button
+                                variant="primary"
+                                size="sm"
+                                onClick={() => handleApplicationStatusUpdate(app._id, 'accepted')}
+                                disabled={updatingApplicationId === app._id}
+                                className="bg-green-600 hover:bg-green-700"
+                              >
+                                {updatingApplicationId === app._id ? (
+                                  <LoadingSpinner size="sm" />
+                                ) : (
+                                  <>
+                                    <CheckCircle className="w-4 h-4 mr-2" />
+                                    Accept
+                                  </>
+                                )}
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       </Card>
                     ))}
                   </div>
                 )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Application Detail Modal */}
+        {selectedApplication && isApplicationDetailOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                      {selectedApplication.applicant_name}
+                    </h2>
+                    <p className="text-gray-600 dark:text-gray-400">
+                      {selectedApplication.applicant_email}
+                    </p>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <Badge 
+                      variant={
+                        selectedApplication.status === 'accepted' ? 'success' : 
+                        selectedApplication.status === 'rejected' ? 'error' : 
+                        'outline'
+                      }
+                    >
+                      {selectedApplication.status}
+                    </Badge>
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        setIsApplicationDetailOpen(false);
+                        setSelectedApplication(null);
+                      }}
+                    >
+                      ×
+                    </Button>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="p-6">
+                <div className="grid gap-6">
+                  {/* Professional Information */}
+                  <Card className="p-4">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                      Professional Information
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {selectedApplication.years_of_experience && (
+                        <div>
+                          <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Years of Experience</p>
+                          <p className="text-gray-900 dark:text-white">{selectedApplication.years_of_experience}</p>
+                        </div>
+                      )}
+                      {selectedApplication.work_authorization && (
+                        <div>
+                          <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Work Authorization</p>
+                          <p className="text-gray-900 dark:text-white">{selectedApplication.work_authorization}</p>
+                        </div>
+                      )}
+                      {selectedApplication.notice_period && (
+                        <div>
+                          <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Notice Period</p>
+                          <p className="text-gray-900 dark:text-white">{selectedApplication.notice_period}</p>
+                        </div>
+                      )}
+                      {selectedApplication.availability_start_date && (
+                        <div>
+                          <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Available From</p>
+                          <p className="text-gray-900 dark:text-white">{selectedApplication.availability_start_date}</p>
+                        </div>
+                      )}
+                      {selectedApplication.remote_work_preference && (
+                        <div>
+                          <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Remote Work Preference</p>
+                          <p className="text-gray-900 dark:text-white">{selectedApplication.remote_work_preference}</p>
+                        </div>
+                      )}
+                      {selectedApplication.relocation_willingness && (
+                        <div>
+                          <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Relocation Willingness</p>
+                          <p className="text-gray-900 dark:text-white">{selectedApplication.relocation_willingness}</p>
+                        </div>
+                      )}
+                    </div>
+                  </Card>
+
+                  {/* Skills & Qualifications */}
+                  {selectedApplication.relevant_skills && (
+                    <Card className="p-4">
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                        Relevant Skills
+                      </h3>
+                      <p className="text-gray-700 dark:text-gray-300">
+                        {selectedApplication.relevant_skills}
+                      </p>
+                    </Card>
+                  )}
+
+                  {/* Cover Letter */}
+                  {selectedApplication.cover_letter && (
+                    <Card className="p-4">
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                        Cover Letter
+                      </h3>
+                      <p className="text-gray-700 dark:text-gray-300 whitespace-pre-line">
+                        {selectedApplication.cover_letter}
+                      </p>
+                    </Card>
+                  )}
+
+                  {/* Motivation */}
+                  {selectedApplication.why_interested && (
+                    <Card className="p-4">
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                        Why Interested in This Role
+                      </h3>
+                      <p className="text-gray-700 dark:text-gray-300">
+                        {selectedApplication.why_interested}
+                      </p>
+                    </Card>
+                  )}
+
+                  {/* Achievements */}
+                  {selectedApplication.biggest_achievement && (
+                    <Card className="p-4">
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                        Biggest Professional Achievement
+                      </h3>
+                      <p className="text-gray-700 dark:text-gray-300">
+                        {selectedApplication.biggest_achievement}
+                      </p>
+                    </Card>
+                  )}
+
+                  {/* Additional Information */}
+                  <Card className="p-4">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                      Additional Information
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {selectedApplication.additional_languages && (
+                        <div>
+                          <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Additional Languages</p>
+                          <p className="text-gray-900 dark:text-white">{selectedApplication.additional_languages}</p>
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Application Date</p>
+                        <p className="text-gray-900 dark:text-white">{formatDate(selectedApplication.created_at)}</p>
+                      </div>
+                    </div>
+                    
+                    {/* Links */}
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {selectedApplication.resume_url && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open(selectedApplication.resume_url, '_blank')}
+                        >
+                          <ExternalLink className="w-4 h-4 mr-2" />
+                          Resume
+                        </Button>
+                      )}
+                      {selectedApplication.portfolio_url && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open(selectedApplication.portfolio_url, '_blank')}
+                        >
+                          <ExternalLink className="w-4 h-4 mr-2" />
+                          Portfolio
+                        </Button>
+                      )}
+                      {selectedApplication.linkedin_url && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open(selectedApplication.linkedin_url, '_blank')}
+                        >
+                          <ExternalLink className="w-4 h-4 mr-2" />
+                          LinkedIn
+                        </Button>
+                      )}
+                      {selectedApplication.github_url && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => window.open(selectedApplication.github_url, '_blank')}
+                        >
+                          <ExternalLink className="w-4 h-4 mr-2" />
+                          GitHub
+                        </Button>
+                      )}
+                    </div>
+                  </Card>
+
+                  {/* Action Buttons */}
+                  {selectedApplication.status === 'pending' && (
+                    <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          handleApplicationStatusUpdate(selectedApplication._id, 'rejected');
+                          setIsApplicationDetailOpen(false);
+                          setSelectedApplication(null);
+                        }}
+                        disabled={updatingApplicationId === selectedApplication._id}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 border-red-300"
+                      >
+                        {updatingApplicationId === selectedApplication._id ? (
+                          <LoadingSpinner size="sm" />
+                        ) : (
+                          <>
+                            <AlertCircle className="w-4 h-4 mr-2" />
+                            Reject Application
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        variant="primary"
+                        onClick={() => {
+                          handleApplicationStatusUpdate(selectedApplication._id, 'accepted');
+                          setIsApplicationDetailOpen(false);
+                          setSelectedApplication(null);
+                        }}
+                        disabled={updatingApplicationId === selectedApplication._id}
+                        className="bg-green-600 hover:bg-green-700"
+                      >
+                        {updatingApplicationId === selectedApplication._id ? (
+                          <LoadingSpinner size="sm" />
+                        ) : (
+                          <>
+                            <CheckCircle className="w-4 h-4 mr-2" />
+                            Accept Application
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>

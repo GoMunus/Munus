@@ -209,7 +209,7 @@ class MongoDBUser(BaseModel):
     experience_years: Optional[int] = None
     preferred_job_types: List[str] = Field(default_factory=list)
     preferred_locations: List[str] = Field(default_factory=list)
-    salary_expectations: Optional[Dict[str, int]] = None
+    salary_expectations: Optional[Dict[str, Any]] = None
     expected_salary_min: Optional[int] = None
     expected_salary_max: Optional[int] = None
     preferred_job_type: Optional[str] = None

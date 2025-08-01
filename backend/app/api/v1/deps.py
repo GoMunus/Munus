@@ -64,8 +64,6 @@ async def get_current_user(
     if 'push_notifications' not in user_data:
         user_data['push_notifications'] = True
     
-    
-    
     user = User(**user_data)
     
     if not user.is_active:
@@ -165,9 +163,7 @@ async def get_optional_current_user(
         if 'push_notifications' not in user_data:
             user_data['push_notifications'] = True
         
-
-        
         user = User(**user_data)
         return user if user.is_active else None
     except:
-        return None
+        return None 

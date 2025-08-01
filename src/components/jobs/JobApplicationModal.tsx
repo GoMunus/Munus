@@ -23,6 +23,17 @@ interface ApplicationFormData {
   portfolio_url?: string;
   linkedin_url?: string;
   github_url?: string;
+  // New screening questions
+  years_of_experience: string;
+  relevant_skills: string;
+  work_authorization: string;
+  notice_period: string;
+  remote_work_preference: string;
+  relocation_willingness: string;
+  why_interested: string;
+  biggest_achievement: string;
+  availability_start_date: string;
+  additional_languages: string;
 }
 
 export const JobApplicationModal: React.FC<JobApplicationModalProps> = ({
@@ -46,7 +57,18 @@ export const JobApplicationModal: React.FC<JobApplicationModalProps> = ({
     audio_resume_url: '',
     portfolio_url: '',
     linkedin_url: '',
-    github_url: ''
+    github_url: '',
+    // New screening questions
+    years_of_experience: '',
+    relevant_skills: '',
+    work_authorization: '',
+    notice_period: '',
+    remote_work_preference: '',
+    relocation_willingness: '',
+    why_interested: '',
+    biggest_achievement: '',
+    availability_start_date: '',
+    additional_languages: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -76,6 +98,40 @@ export const JobApplicationModal: React.FC<JobApplicationModalProps> = ({
       return;
     }
 
+    // Validate required screening questions
+    if (!formData.years_of_experience) {
+      setError('Years of experience is required');
+      return;
+    }
+    if (!formData.work_authorization) {
+      setError('Work authorization status is required');
+      return;
+    }
+    if (!formData.notice_period) {
+      setError('Notice period is required');
+      return;
+    }
+    if (!formData.remote_work_preference) {
+      setError('Work location preference is required');
+      return;
+    }
+    if (!formData.relevant_skills.trim()) {
+      setError('Relevant skills are required');
+      return;
+    }
+    if (!formData.why_interested.trim()) {
+      setError('Please explain why you are interested in this role');
+      return;
+    }
+    if (!formData.biggest_achievement.trim()) {
+      setError('Please describe your biggest professional achievement');
+      return;
+    }
+    if (!formData.availability_start_date) {
+      setError('Start date is required');
+      return;
+    }
+
     setIsSubmitting(true);
     setError(null);
     setSuccess(null);
@@ -101,7 +157,17 @@ export const JobApplicationModal: React.FC<JobApplicationModalProps> = ({
         audio_resume_url: '',
         portfolio_url: '',
         linkedin_url: '',
-        github_url: ''
+        github_url: '',
+        years_of_experience: '',
+        relevant_skills: '',
+        work_authorization: '',
+        notice_period: '',
+        remote_work_preference: '',
+        relocation_willingness: '',
+        why_interested: '',
+        biggest_achievement: '',
+        availability_start_date: '',
+        additional_languages: ''
       });
       
       // Close modal after a short delay to show success message
@@ -202,6 +268,247 @@ export const JobApplicationModal: React.FC<JobApplicationModalProps> = ({
               rows={6}
               required
             />
+          </div>
+
+          {/* Screening Questions */}
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+            <h3 className={`text-lg font-semibold mb-4 ${
+              theme === 'light' ? 'text-gray-900' : 'text-white'
+            }`}>
+              Application Questions
+            </h3>
+            <div className="space-y-4">
+              {/* Years of Experience */}
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${
+                  theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                }`}>
+                  How many years of relevant experience do you have? <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={formData.years_of_experience}
+                  onChange={(e) => updateFormData('years_of_experience', e.target.value)}
+                  className={`w-full p-3 border rounded-lg ${
+                    theme === 'light' 
+                      ? 'border-gray-300 bg-white text-gray-900' 
+                      : 'border-gray-600 bg-gray-700 text-white'
+                  }`}
+                  required
+                >
+                  <option value="">Select experience level</option>
+                  <option value="0-1">0-1 years (Entry level)</option>
+                  <option value="2-3">2-3 years</option>
+                  <option value="4-5">4-5 years</option>
+                  <option value="6-8">6-8 years</option>
+                  <option value="9-12">9-12 years (Senior level)</option>
+                  <option value="13+">13+ years (Expert level)</option>
+                </select>
+              </div>
+
+              {/* Work Authorization */}
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${
+                  theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                }`}>
+                  Are you authorized to work in this location? <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={formData.work_authorization}
+                  onChange={(e) => updateFormData('work_authorization', e.target.value)}
+                  className={`w-full p-3 border rounded-lg ${
+                    theme === 'light' 
+                      ? 'border-gray-300 bg-white text-gray-900' 
+                      : 'border-gray-600 bg-gray-700 text-white'
+                  }`}
+                  required
+                >
+                  <option value="">Select authorization status</option>
+                  <option value="yes">Yes, I am authorized to work</option>
+                  <option value="no">No, I will need sponsorship</option>
+                  <option value="pending">Pending work authorization</option>
+                </select>
+              </div>
+
+              {/* Notice Period */}
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${
+                  theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                }`}>
+                  What is your notice period? <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={formData.notice_period}
+                  onChange={(e) => updateFormData('notice_period', e.target.value)}
+                  className={`w-full p-3 border rounded-lg ${
+                    theme === 'light' 
+                      ? 'border-gray-300 bg-white text-gray-900' 
+                      : 'border-gray-600 bg-gray-700 text-white'
+                  }`}
+                  required
+                >
+                  <option value="">Select notice period</option>
+                  <option value="immediate">Available immediately</option>
+                  <option value="1-week">1 week</option>
+                  <option value="2-weeks">2 weeks</option>
+                  <option value="1-month">1 month</option>
+                  <option value="2-months">2 months</option>
+                  <option value="3-months">3 months</option>
+                  <option value="other">Other (please specify in cover letter)</option>
+                </select>
+              </div>
+
+              {/* Remote Work Preference */}
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${
+                  theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                }`}>
+                  What is your work location preference? <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={formData.remote_work_preference}
+                  onChange={(e) => updateFormData('remote_work_preference', e.target.value)}
+                  className={`w-full p-3 border rounded-lg ${
+                    theme === 'light' 
+                      ? 'border-gray-300 bg-white text-gray-900' 
+                      : 'border-gray-600 bg-gray-700 text-white'
+                  }`}
+                  required
+                >
+                  <option value="">Select work preference</option>
+                  <option value="remote">Fully remote</option>
+                  <option value="hybrid">Hybrid (mix of remote and office)</option>
+                  <option value="onsite">On-site only</option>
+                  <option value="flexible">Flexible (any arrangement)</option>
+                </select>
+              </div>
+
+              {/* Relevant Skills */}
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${
+                  theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                }`}>
+                  What are your most relevant skills for this position? <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={formData.relevant_skills}
+                  onChange={(e) => updateFormData('relevant_skills', e.target.value)}
+                  placeholder="List your key skills, technologies, certifications, or expertise relevant to this role..."
+                  className={`w-full p-3 border rounded-lg resize-none ${
+                    theme === 'light' 
+                      ? 'border-gray-300 bg-white text-gray-900' 
+                      : 'border-gray-600 bg-gray-700 text-white'
+                  }`}
+                  rows={3}
+                  required
+                />
+              </div>
+
+              {/* Why Interested */}
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${
+                  theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                }`}>
+                  Why are you interested in this specific role and company? <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={formData.why_interested}
+                  onChange={(e) => updateFormData('why_interested', e.target.value)}
+                  placeholder="What attracts you to this position and our company? What do you hope to achieve in this role?"
+                  className={`w-full p-3 border rounded-lg resize-none ${
+                    theme === 'light' 
+                      ? 'border-gray-300 bg-white text-gray-900' 
+                      : 'border-gray-600 bg-gray-700 text-white'
+                  }`}
+                  rows={3}
+                  required
+                />
+              </div>
+
+              {/* Biggest Achievement */}
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${
+                  theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                }`}>
+                  What is your biggest professional achievement? <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={formData.biggest_achievement}
+                  onChange={(e) => updateFormData('biggest_achievement', e.target.value)}
+                  placeholder="Describe a significant accomplishment in your career that demonstrates your abilities..."
+                  className={`w-full p-3 border rounded-lg resize-none ${
+                    theme === 'light' 
+                      ? 'border-gray-300 bg-white text-gray-900' 
+                      : 'border-gray-600 bg-gray-700 text-white'
+                  }`}
+                  rows={3}
+                  required
+                />
+              </div>
+
+              {/* Start Date */}
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${
+                  theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                }`}>
+                  When can you start? <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={formData.availability_start_date}
+                  onChange={(e) => updateFormData('availability_start_date', e.target.value)}
+                  className={`w-full p-3 border rounded-lg ${
+                    theme === 'light' 
+                      ? 'border-gray-300 bg-white text-gray-900' 
+                      : 'border-gray-600 bg-gray-700 text-white'
+                  }`}
+                  required
+                />
+              </div>
+
+              {/* Additional Languages */}
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${
+                  theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                }`}>
+                  Additional languages you speak (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={formData.additional_languages}
+                  onChange={(e) => updateFormData('additional_languages', e.target.value)}
+                  placeholder="e.g., Spanish (Fluent), French (Conversational)"
+                  className={`w-full p-3 border rounded-lg ${
+                    theme === 'light' 
+                      ? 'border-gray-300 bg-white text-gray-900' 
+                      : 'border-gray-600 bg-gray-700 text-white'
+                  }`}
+                />
+              </div>
+
+              {/* Relocation */}
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${
+                  theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+                }`}>
+                  Are you willing to relocate for this position?
+                </label>
+                <select
+                  value={formData.relocation_willingness}
+                  onChange={(e) => updateFormData('relocation_willingness', e.target.value)}
+                  className={`w-full p-3 border rounded-lg ${
+                    theme === 'light' 
+                      ? 'border-gray-300 bg-white text-gray-900' 
+                      : 'border-gray-600 bg-gray-700 text-white'
+                  }`}
+                >
+                  <option value="">Select relocation preference</option>
+                  <option value="yes">Yes, I am willing to relocate</option>
+                  <option value="no">No, I cannot relocate</option>
+                  <option value="depends">Depends on the opportunity</option>
+                  <option value="not-needed">Relocation not needed</option>
+                </select>
+              </div>
+            </div>
           </div>
 
           {/* Optional Fields - Collapsible */}

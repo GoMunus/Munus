@@ -249,6 +249,20 @@ async def apply_to_job(job_id: str, application_data: Dict[str, Any]):
             {"$inc": {"applications_count": 1}}
         )
         
+        # Send notification to employer about new application
+        try:
+            from app.services.notification_service import notification_service
+            await notification_service.create_new_application_notification(
+                employer_id=job.get("employer_id"),
+                applicant_name=application_data.get("applicant_name", "Applicant"),
+                job_title=job.get("title", "Job"),
+                job_id=job_id,
+                application_id=str(result.inserted_id)
+            )
+        except Exception as notification_error:
+            print(f"Failed to send notification to employer: {notification_error}")
+            # Don't fail the request if notification fails
+        
         return application_data
     except HTTPException:
         raise

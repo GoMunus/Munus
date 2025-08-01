@@ -14,7 +14,9 @@ class UserService {
 
   async updateProfile(userData: Partial<User>): Promise<User> {
     try {
+      console.log('UserService: Updating profile with data:', userData);
       const response = await api.put<User>('/users/me', userData);
+      console.log('UserService: Profile update successful:', response.data);
       
       // Update stored user data
       const currentUser = localStorage.getItem('skillglide-user');
@@ -25,7 +27,24 @@ class UserService {
       
       return response.data;
     } catch (error: any) {
-      const errorMessage = error.response?.data?.detail || 'Failed to update profile';
+      console.error('UserService: Profile update failed:', error);
+      console.error('UserService: Error response:', error.response);
+      console.error('UserService: Error data:', error.response?.data);
+      
+      let errorMessage = 'Failed to update profile';
+      if (error.response?.data?.detail) {
+        errorMessage = error.response.data.detail;
+      } else if (error.response?.data) {
+        if (typeof error.response.data === 'string') {
+          errorMessage = error.response.data;
+        } else if (Array.isArray(error.response.data)) {
+          // Handle validation errors
+          errorMessage = error.response.data.map((err: any) => err.msg || err.message || err).join(', ');
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       throw new Error(errorMessage);
     }
   }

@@ -3,6 +3,7 @@ import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Badge } from '../ui/Badge';
 import { LoadingSpinner } from '../common/LoadingSpinner';
+import { JobApplicationModal } from './JobApplicationModal';
 import { useAuth } from '../../contexts/AuthContext';
 import { jobService } from '../../services/jobService';
 import { notificationService } from '../../services/notificationService';
@@ -21,36 +22,16 @@ import {
   CheckCircle,
   AlertCircle,
   Search,
-  Edit,
   BarChart3,
-  PieChart,
   Activity,
   Zap,
-  Lightbulb,
-  Heart,
-  MessageSquare,
-  Video,
-  Mic,
-  Link,
-  ExternalLink,
-  ChevronRight,
-  ChevronLeft,
   RefreshCw,
-  User as UserIcon,
-  Building,
-  GraduationCap,
-  Code,
-  Globe,
-  Smartphone,
-  Monitor,
-  Home,
-  Coffee,
-  HelpCircle,
-  Mail
+  User as UserIcon
 } from 'lucide-react';
 import type { JobResponse } from '../../services/jobService';
 import type { NotificationResponse } from '../../services/notificationService';
 import type { User } from '../../types';
+import { useToast } from '../common/Toast';
 
 interface Application {
   _id: string;
@@ -75,7 +56,11 @@ interface DashboardStats {
   interviewsScheduled: number;
 }
 
-export const JobSeekerDashboard: React.FC = () => {
+interface JobSeekerDashboardProps {
+  onNavigate?: (view: 'home' | 'jobs' | 'resume' | 'profile' | 'create-profile' | 'dashboard' | 'post-job' | 'candidates' | 'faqs' | 'contact' | 'settings' | 'notifications') => void;
+}
+
+export const JobSeekerDashboard: React.FC<JobSeekerDashboardProps> = ({ onNavigate }) => {
   const [applications, setApplications] = useState<Application[]>([]);
   const [availableJobs, setAvailableJobs] = useState<JobResponse[]>([]);
   const [notifications, setNotifications] = useState<NotificationResponse[]>([]);
@@ -93,7 +78,10 @@ export const JobSeekerDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'applications' | 'jobs' | 'activity'>('overview');
+  const [selectedJob, setSelectedJob] = useState<JobResponse | null>(null);
+  const [isApplicationModalOpen, setIsApplicationModalOpen] = useState(false);
   const { user } = useAuth();
+  const { success } = useToast();
 
   const fetchApplications = async () => {
     try {
@@ -178,6 +166,18 @@ export const JobSeekerDashboard: React.FC = () => {
       }
     };
 
+  const handleApplyToJob = (job: JobResponse) => {
+    setSelectedJob(job);
+    setIsApplicationModalOpen(true);
+  };
+
+  const handleApplicationSuccess = () => {
+    // Refresh data to update application counts
+    fetchData();
+    // Show success message
+    success('Application Submitted', 'Your application has been submitted successfully!');
+  };
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -250,6 +250,9 @@ export const JobSeekerDashboard: React.FC = () => {
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">
               Welcome back, {userProfile?.name || user?.name || 'Job Seeker'}! 👋
             </h1>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Current view: Dashboard | Buttons should work now!
+            </p>
             <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
               Track your applications and discover new opportunities
             </p>
@@ -263,15 +266,6 @@ export const JobSeekerDashboard: React.FC = () => {
             >
               <RefreshCw className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
               <span className="hidden sm:inline">Refresh</span>
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => window.location.href = '/profile'}
-              className="flex items-center text-xs sm:text-sm"
-            >
-              <Edit className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-              <span className="hidden sm:inline">Edit Profile</span>
             </Button>
           </div>
         </div>
@@ -366,11 +360,11 @@ export const JobSeekerDashboard: React.FC = () => {
           <Zap className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-blue-600 dark:text-blue-400" />
           Quick Actions
         </h2>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           <Button
             variant="outline"
             className="h-16 sm:h-20 flex flex-col items-center justify-center space-y-1 sm:space-y-2 hover-lift p-2"
-            onClick={() => window.location.href = '/resume-builder'}
+            onClick={() => onNavigate?.('resume')}
           >
             <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 dark:text-blue-400" />
             <span className="text-xs sm:text-sm font-medium text-center">Build Resume</span>
@@ -379,25 +373,19 @@ export const JobSeekerDashboard: React.FC = () => {
           <Button
             variant="outline"
             className="h-16 sm:h-20 flex flex-col items-center justify-center space-y-1 sm:space-y-2 hover-lift p-2"
-            onClick={() => window.location.href = '/jobs'}
+            onClick={() => {
+              console.log('Find Jobs button clicked!');
+              onNavigate?.('jobs');
+            }}
           >
             <Search className="w-5 h-5 sm:w-6 sm:h-6 text-green-600 dark:text-green-400" />
             <span className="text-xs sm:text-sm font-medium text-center">Find Jobs</span>
           </Button>
           
-          <Button
+          <Button 
             variant="outline"
             className="h-16 sm:h-20 flex flex-col items-center justify-center space-y-1 sm:space-y-2 hover-lift p-2"
-            onClick={() => window.location.href = '/profile'}
-          >
-            <Edit className="w-5 h-5 sm:w-6 sm:h-6 text-purple-600 dark:text-purple-400" />
-            <span className="text-xs sm:text-sm font-medium text-center">Update Profile</span>
-          </Button>
-          
-          <Button 
-            variant="outline" 
-            className="h-16 sm:h-20 flex flex-col items-center justify-center space-y-1 sm:space-y-2 hover-lift p-2"
-            onClick={() => window.location.href = '/notifications'}
+            onClick={() => onNavigate?.('notifications')}
           >
             <Bell className="w-5 h-5 sm:w-6 sm:h-6 text-orange-600 dark:text-orange-400" />
             <span className="text-xs sm:text-sm font-medium text-center">Notifications</span>
@@ -442,7 +430,7 @@ export const JobSeekerDashboard: React.FC = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => window.location.href = '/notifications'}
+                  onClick={() => onNavigate?.('notifications')}
                   className="text-xs sm:text-sm"
                 >
                   View All
@@ -496,7 +484,7 @@ export const JobSeekerDashboard: React.FC = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => window.location.href = '/jobs'}
+                  onClick={() => onNavigate?.('jobs')}
                   className="text-xs sm:text-sm"
                 >
                   View All Jobs
@@ -549,7 +537,7 @@ export const JobSeekerDashboard: React.FC = () => {
                           <Button
                             variant="primary"
                             size="sm"
-                            onClick={() => window.location.href = `/jobs/${job._id || job.id}`}
+                            onClick={() => handleApplyToJob(job)}
                             className="text-xs sm:text-sm"
                           >
                             Apply
@@ -594,7 +582,7 @@ export const JobSeekerDashboard: React.FC = () => {
               </p>
               <Button
                 variant="primary"
-                onClick={() => window.location.href = '/jobs'}
+                onClick={() => onNavigate?.('jobs')}
               >
                 <Search className="w-4 h-4 mr-2" />
                 Find Jobs
@@ -626,7 +614,7 @@ export const JobSeekerDashboard: React.FC = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => window.location.href = `/jobs/${app.job_id}`}
+                        onClick={() => onNavigate?.('jobs')}
                         className="text-xs sm:text-sm"
                       >
                         <Eye className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
@@ -672,7 +660,7 @@ export const JobSeekerDashboard: React.FC = () => {
               <Button
                 variant="primary"
                 size="sm"
-                onClick={() => window.location.href = '/jobs'}
+                onClick={() => onNavigate?.('jobs')}
                 className="text-xs sm:text-sm"
               >
                 <Search className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
@@ -692,7 +680,7 @@ export const JobSeekerDashboard: React.FC = () => {
               </p>
               <Button
                 variant="primary"
-                onClick={() => window.location.href = '/jobs'}
+                onClick={() => onNavigate?.('jobs')}
               >
                 <Search className="w-4 h-4 mr-2" />
                 Browse Jobs
@@ -765,7 +753,7 @@ export const JobSeekerDashboard: React.FC = () => {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => window.location.href = `/jobs/${job._id || job.id}`}
+                          onClick={() => onNavigate?.('jobs')}
                           className="text-xs sm:text-sm"
                         >
                           <Eye className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
@@ -774,7 +762,7 @@ export const JobSeekerDashboard: React.FC = () => {
                         <Button
                           variant="primary"
                           size="sm"
-                          onClick={() => window.location.href = `/jobs/${job._id || job.id}`}
+                          onClick={() => handleApplyToJob(job)}
                           className="text-xs sm:text-sm"
                         >
                           Apply Now
@@ -787,12 +775,12 @@ export const JobSeekerDashboard: React.FC = () => {
               
               {availableJobs.length > 10 && (
                 <div className="text-center mt-6">
-                  <Button
-                    variant="outline"
-                    onClick={() => window.location.href = '/jobs'}
-                  >
-                    View All {availableJobs.length} Jobs
-                  </Button>
+                                  <Button
+                  variant="outline"
+                  onClick={() => onNavigate?.('jobs')}
+                >
+                  View All {availableJobs.length} Jobs
+                </Button>
                 </div>
               )}
             </div>
@@ -888,6 +876,19 @@ export const JobSeekerDashboard: React.FC = () => {
             </div>
             </Card>
         </div>
+      )}
+
+      {/* Job Application Modal */}
+      {selectedJob && (
+        <JobApplicationModal
+          job={selectedJob}
+          isOpen={isApplicationModalOpen}
+          onClose={() => {
+            setIsApplicationModalOpen(false);
+            setSelectedJob(null);
+          }}
+          onSuccess={handleApplicationSuccess}
+        />
       )}
     </div>
   );

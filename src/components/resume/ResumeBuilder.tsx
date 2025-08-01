@@ -89,9 +89,7 @@ export const ResumeBuilder: React.FC = () => {
         return (
           <VideoResumeStep
             videoUrl={resumeData.videoUrl}
-            voiceUrl={resumeData.voiceUrl}
             onVideoChange={(url) => updateResumeData('videoUrl', url)}
-            onVoiceChange={(url) => updateResumeData('voiceUrl', url)}
           />
         );
       case 'preview':

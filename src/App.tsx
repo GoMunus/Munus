@@ -23,9 +23,17 @@ import './styles/themes.css';
 import { FAQPage } from './components/faqs/FAQPage';
 import { ContactPage } from './components/contact/ContactPage';
 import { SettingsPage } from './components/profile/SettingsPage';
+import { NotificationsPage } from './components/notifications/NotificationsPage';
+import { AIChatbot } from './components/common/AIChatbot';
 
 const AppContent: React.FC = () => {
-  const [currentView, setCurrentView] = useState<'home' | 'jobs' | 'resume' | 'profile' | 'create-profile' | 'dashboard' | 'post-job' | 'candidates' | 'faqs' | 'contact' | 'settings'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'jobs' | 'resume' | 'profile' | 'create-profile' | 'dashboard' | 'post-job' | 'candidates' | 'faqs' | 'contact' | 'settings' | 'notifications'>('home');
+  
+  // Wrapper function to log navigation changes
+  const handleNavigate = (view: 'home' | 'jobs' | 'resume' | 'profile' | 'create-profile' | 'dashboard' | 'post-job' | 'candidates' | 'faqs' | 'contact' | 'settings' | 'notifications') => {
+    console.log('🔄 Navigation requested:', { from: currentView, to: view });
+    setCurrentView(view);
+  };
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<'login' | 'register'>('login');
   const [dashboardKey, setDashboardKey] = useState(0); // Key to force dashboard refresh
@@ -33,83 +41,52 @@ const AppContent: React.FC = () => {
   const { theme } = useTheme();
   const { toasts, removeToast } = useToast();
 
+  // Navigation logic is now handled in the useEffect below
+
+  // Handle authentication state changes - only redirect when necessary
+  useEffect(() => {
+    if (loading) return;
+
+    // If not authenticated, only allow home or create-profile
+    if (!isAuthenticated && !['home', 'create-profile'].includes(currentView)) {
+      console.log('❌ User not authenticated, redirecting from', currentView, 'to home');
+      setCurrentView('home');
+      return;
+    }
+
+    // If authenticated, only redirect if on home or create-profile (initial login redirect)
+    if (isAuthenticated && ['home', 'create-profile'].includes(currentView)) {
+      console.log('✅ User authenticated, redirecting from', currentView, 'to dashboard');
+      setCurrentView('dashboard');
+      return;
+    }
+
+    // Otherwise, allow the user to stay on their current page
+    console.log('🔄 Navigation allowed, staying on', currentView);
+  }, [isAuthenticated, isEmployer, isJobSeeker, loading, currentView]);
+
   // Reset to home page when user logs out
   useEffect(() => {
-    // Only redirect to home if trying to access protected views
-    const protectedViews = ['profile', 'dashboard', 'post-job', 'candidates'];
-    if (!isAuthenticated && protectedViews.includes(currentView)) {
+    if (!isAuthenticated && currentView !== 'home' && currentView !== 'create-profile') {
+      console.log('🚪 User logged out, redirecting to home');
       setCurrentView('home');
     }
   }, [isAuthenticated, currentView]);
 
-  // Redirect to appropriate dashboard after login
-  useEffect(() => {
-    if (isAuthenticated && currentView === 'home') {
-      if (isEmployer) {
-        setCurrentView('dashboard');
-      } else if (isJobSeeker) {
-        setCurrentView('dashboard');
-      }
-    }
-  }, [isAuthenticated, isEmployer, isJobSeeker, currentView]);
-
-  // Auto-redirect authenticated users to dashboard
-  useEffect(() => {
-    const storedUserStr = localStorage.getItem('skillglide-user');
-    console.log('🔄 Auto-redirect useEffect triggered', {
-      isAuthenticated,
-      storedUserStr: !!storedUserStr,
-      currentView
-    });
-    
-    if (storedUserStr && !isAuthenticated) {
-      // User exists in localStorage but not in context (just registered)
-      const storedUser = JSON.parse(storedUserStr);
-      console.log('👤 Found user in localStorage', { role: storedUser.role });
-      if (storedUser.role === 'employer' || storedUser.role === 'jobseeker') {
-        console.log('🎯 Auto-redirecting to dashboard');
-        setCurrentView('dashboard');
-      }
-    }
-  }, [isAuthenticated]);
-
   const handleGetStarted = () => {
-    // Check if user is authenticated (either from context or localStorage)
-    const storedUserStr = localStorage.getItem('skillglide-user');
-    const isUserAuthenticated = isAuthenticated || !!storedUserStr;
-    
     console.log('🚀 handleGetStarted called', {
       isAuthenticated,
       isEmployer,
       isJobSeeker,
-      storedUserStr: !!storedUserStr,
-      isUserAuthenticated
+      user: user?.role
     });
     
-    if (isUserAuthenticated) {
-      // If already authenticated, go to appropriate page
-      if (isEmployer) {
-        console.log('🎯 Redirecting to employer dashboard');
-        setCurrentView('dashboard');
-      } else if (isJobSeeker) {
-        console.log('🎯 Redirecting to job seeker dashboard');
-        setCurrentView('dashboard');
-      } else if (storedUserStr) {
-        // Fallback: check localStorage for user role
-        const storedUser = JSON.parse(storedUserStr);
-        console.log('📋 Using localStorage fallback', { role: storedUser.role });
-        if (storedUser.role === 'employer') {
-          console.log('🎯 Redirecting to employer dashboard (fallback)');
-          setCurrentView('dashboard');
-        } else {
-          console.log('🎯 Redirecting to job seeker dashboard (fallback)');
-          setCurrentView('dashboard');
-        }
-      } else {
-        console.log('🎯 Redirecting to dashboard (default)');
-        setCurrentView('dashboard');
-      }
+    if (isAuthenticated) {
+      // User is already authenticated, redirect to dashboard
+      console.log('✅ User authenticated, redirecting to dashboard');
+      setCurrentView('dashboard');
     } else {
+      // User is not authenticated, go to profile creation
       console.log('📝 User not authenticated, going to profile creation');
       setCurrentView('create-profile');
     }
@@ -122,51 +99,11 @@ const AppContent: React.FC = () => {
 
   const handleProfileCreationComplete = () => {
     console.log('🎉 Profile creation completed!');
-    
-    // Wait a moment for AuthContext to update, then check both AuthContext and localStorage
-    setTimeout(() => {
-      // First check AuthContext state
-      if (isAuthenticated && user) {
-        console.log('✅ Using AuthContext user:', user);
-        if (user.role === 'employer') {
-          console.log('🎯 Redirecting to employer dashboard (AuthContext)');
-          setCurrentView('dashboard');
-        } else if (user.role === 'jobseeker') {
-          console.log('🎯 Redirecting to job seeker dashboard (AuthContext)');
-          setCurrentView('dashboard');
-        } else {
-          console.log('❓ Unknown role in AuthContext, redirecting to home');
-          setCurrentView('home');
-        }
-        return;
-      }
-      
-      // Fallback to localStorage
-      const storedUserStr = localStorage.getItem('skillglide-user');
-      if (storedUserStr) {
-        try {
-          const storedUser = JSON.parse(storedUserStr);
-          console.log('📋 Using localStorage user:', storedUser);
-          
-          if (storedUser.role === 'employer') {
-            console.log('🎯 Redirecting to employer dashboard (localStorage)');
-            setCurrentView('dashboard');
-          } else if (storedUser.role === 'jobseeker') {
-            console.log('🎯 Redirecting to job seeker dashboard (localStorage)');
-            setCurrentView('dashboard');
-          } else {
-            console.log('❓ Unknown role in localStorage, redirecting to home');
-            setCurrentView('home');
-          }
-        } catch (error) {
-          console.error('❌ Error parsing stored user:', error);
-          setCurrentView('home');
-        }
-      } else {
-        console.log('❌ No user found in AuthContext or localStorage, redirecting to home');
-        setCurrentView('home');
-      }
-    }, 500); // Wait 500ms for AuthContext to update
+    // The useEffect will handle the redirect automatically
+    // Just ensure we're not on the create-profile view anymore
+    if (currentView === 'create-profile') {
+      setCurrentView('home');
+    }
   };
 
   const handleProfileCreationBack = () => {
@@ -228,11 +165,21 @@ const AppContent: React.FC = () => {
         case 'resume':
           return <ResumeBuilder />;
         case 'dashboard':
-          return isEmployer ? (
-            <EmployerDashboard key={dashboardKey} onNavigate={setCurrentView} />
-          ) : (
-            <JobSeekerDashboard />
-          );
+          if (isEmployer) {
+            return <EmployerDashboard key={dashboardKey} onNavigate={handleNavigate} />;
+          } else if (isJobSeeker) {
+            return <JobSeekerDashboard onNavigate={handleNavigate} />;
+          } else {
+            // Fallback: try to determine role from user object
+            if (user?.role === 'employer') {
+              return <EmployerDashboard key={dashboardKey} onNavigate={handleNavigate} />;
+            } else if (user?.role === 'jobseeker') {
+              return <JobSeekerDashboard onNavigate={handleNavigate} />;
+            } else {
+              // Last resort: show job seeker dashboard
+              return <JobSeekerDashboard onNavigate={handleNavigate} />;
+            }
+          }
         case 'post-job':
           return (
             <JobPostingBuilder 
@@ -271,6 +218,8 @@ const AppContent: React.FC = () => {
           return <ContactPage />;
         case 'settings':
           return <SettingsPage />;
+        case 'notifications':
+          return <NotificationsPage onNavigate={handleNavigate} />;
         default:
           return <HomePage onGetStarted={handleGetStarted} onSignIn={handleSignIn} onFindJobs={handleFindJobs} onResumeBuilder={handleResumeBuilder} />;
       }
@@ -304,7 +253,7 @@ const AppContent: React.FC = () => {
         : 'bg-gradient-to-br from-gray-900 via-gray-900 to-blue-900 dark-neon bg-dark-pattern'
     }`}>
       <Header 
-        onNavigate={(view) => setCurrentView(view)}
+        onNavigate={handleNavigate}
         currentView={currentView}
         onGetStarted={handleGetStarted}
         onSignIn={handleSignIn}
@@ -325,6 +274,9 @@ const AppContent: React.FC = () => {
 
       {/* Toast Notifications */}
       <ToastContainer toasts={toasts} onRemove={removeToast} />
+      
+      {/* AI Chatbot */}
+      <AIChatbot />
     </div>
   );
 };
@@ -335,7 +287,7 @@ function App() {
       <ThemeProvider>
         <AuthProvider>
           <JobProvider>
-            {/* <ConnectionStatus /> */}
+            <ConnectionStatus />
             <AppContent />
           </JobProvider>
         </AuthProvider>

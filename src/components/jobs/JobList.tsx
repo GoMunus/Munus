@@ -1,18 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { Loader2, Briefcase, AlertCircle } from 'lucide-react';
+import { Briefcase, AlertCircle } from 'lucide-react';
 import { JobCard } from './JobCard';
+import { JobApplicationModal } from './JobApplicationModal';
 import { useAuth } from '../../contexts/AuthContext';
 import { LoadingSpinner } from '../common/LoadingSpinner';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { jobService } from '../../services/jobService';
 import type { JobResponse } from '../../services/jobService';
+import { useToast } from '../common/Toast';
 
 export const JobList: React.FC = () => {
   const [jobs, setJobs] = useState<JobResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedJob, setSelectedJob] = useState<JobResponse | null>(null);
+  const [isApplicationModalOpen, setIsApplicationModalOpen] = useState(false);
   const { isAuthenticated } = useAuth();
+  const { success, error: showError } = useToast();
 
   const fetchJobs = async () => {
     try {
@@ -32,41 +37,33 @@ export const JobList: React.FC = () => {
     fetchJobs();
   }, []);
 
-  const handleApply = async (jobId: number) => {
+  const handleApply = (jobId: string) => {
     if (!isAuthenticated) {
       // Show login modal or redirect to login
-      console.log('Please login to apply for jobs');
+      showError('Login Required', 'Please login to apply for jobs');
       return;
     }
     
-    try {
-      // Create a simple application (you can enhance this with a form later)
-      const applicationData = {
-        cover_letter: "I am interested in this position and would like to apply.",
-        resume_url: "",
-        video_resume_url: "",
-        audio_resume_url: "",
-        portfolio_url: "",
-        linkedin_url: "",
-        github_url: ""
-      };
-      
-      await jobService.applyForJob(jobId, applicationData);
-      console.log('Successfully applied to job:', jobId);
-      
-      // Refresh the job list to update application counts
-      fetchJobs();
-      
-      // Show success message (you can add a toast notification here)
-      alert('Application submitted successfully!');
-    } catch (error: any) {
-      console.error('Error applying to job:', error);
-      const errorMessage = error.response?.data?.detail || error.message || 'Failed to apply for job';
-      alert(`Error: ${errorMessage}`);
+    // Find the job by ID
+    const job = jobs.find(j => (j.id || j._id) === jobId);
+    if (!job) {
+      showError('Error', 'Job not found');
+      return;
     }
+    
+    // Open application modal with the selected job
+    setSelectedJob(job);
+    setIsApplicationModalOpen(true);
   };
 
-  const handleSave = (jobId: number) => {
+  const handleApplicationSuccess = () => {
+    // Refresh the job list to update application counts
+    fetchJobs();
+    // Show success message
+    success('Application Submitted', 'Your application has been submitted successfully!');
+  };
+
+  const handleSave = (jobId: string) => {
     if (!isAuthenticated) {
       console.log('Please login to save jobs');
       return;
@@ -175,6 +172,19 @@ export const JobList: React.FC = () => {
             Load More Jobs
           </Button>
         </div>
+      )}
+
+      {/* Job Application Modal */}
+      {selectedJob && (
+        <JobApplicationModal
+          job={selectedJob}
+          isOpen={isApplicationModalOpen}
+          onClose={() => {
+            setIsApplicationModalOpen(false);
+            setSelectedJob(null);
+          }}
+          onSuccess={handleApplicationSuccess}
+        />
       )}
     </div>
   );

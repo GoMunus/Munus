@@ -139,8 +139,10 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
       
       // Clear success message after 3 seconds
       setTimeout(() => setSaveMessage(''), 3000);
-    } catch (error) {
-      setSaveMessage('Failed to save profile. Please try again.');
+    } catch (error: any) {
+      console.error('Profile save error:', error);
+      const errorMessage = error?.message || 'Failed to save profile. Please try again.';
+      setSaveMessage(errorMessage);
     } finally {
       setIsSaving(false);
     }

@@ -1,6 +1,6 @@
 // Core type definitions for the job portal
 export interface User {
-  id?: number;
+  id?: number | string;
   _id?: string;
   email: string;
   name: string;
@@ -57,7 +57,6 @@ export interface Resume {
   projects?: Project[];
   certifications?: Certification[];
   videoUrl?: string;
-  voiceUrl?: string;
   templateId: string;
   createdAt: Date;
   updatedAt: Date;

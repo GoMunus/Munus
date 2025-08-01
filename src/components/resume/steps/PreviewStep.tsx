@@ -10,7 +10,7 @@ interface PreviewStepProps {
 }
 
 export const PreviewStep: React.FC<PreviewStepProps> = ({ resumeData }) => {
-  const { personalInfo, experience, education, skills, videoUrl, voiceUrl } = resumeData;
+  const { personalInfo, experience, education, skills, videoUrl } = resumeData;
 
   const formatDate = (date: Date | undefined) => {
     if (!date) return '';
@@ -88,37 +88,21 @@ export const PreviewStep: React.FC<PreviewStepProps> = ({ resumeData }) => {
           </div>
         )}
 
-        {/* Video/Voice Resume */}
-        {(videoUrl || voiceUrl) && (
+        {/* Video Resume */}
+        {videoUrl && (
           <div className="mb-6">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">
-              Media Resume
+              Video Resume
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {videoUrl && (
-                <div>
-                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Video Introduction
-                  </h3>
-                  <video
-                    src={videoUrl}
-                    controls
-                    className="w-full rounded-lg"
-                  />
-                </div>
-              )}
-              {voiceUrl && (
-                <div>
-                  <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Voice Message
-                  </h3>
-                  <audio
-                    src={voiceUrl}
-                    controls
-                    className="w-full"
-                  />
-                </div>
-              )}
+            <div>
+              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Video Introduction
+              </h3>
+              <video
+                src={videoUrl}
+                controls
+                className="w-full max-w-md rounded-lg"
+              />
             </div>
           </div>
         )}

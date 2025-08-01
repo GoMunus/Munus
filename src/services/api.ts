@@ -20,6 +20,9 @@ apiClient.interceptors.request.use(
     const token = localStorage.getItem('skillglide-access-token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+      console.log('API: Added auth token to request');
+    } else {
+      console.warn('API: No auth token found in localStorage');
     }
     return config;
   },
@@ -129,8 +132,11 @@ export const api = {
   },
   
   put: <T = any>(url: string, data?: any): Promise<any> => {
+    console.log(`API: Making PUT request to ${url}`);
+    console.log('API: Request data:', data);
     return apiClient.put(url, data).catch((error) => {
       console.error(`PUT ${url} failed:`, error);
+      console.error('API: Error response:', error.response);
       throw error;
     });
   },

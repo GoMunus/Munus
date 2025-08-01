@@ -3,13 +3,12 @@ import { MapPin, Clock, Users, DollarSign, Bookmark, ExternalLink, Star, Trendin
 import { Card } from '../ui/Card';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
-import { useTheme } from '../../contexts/ThemeContext';
 import type { JobResponse } from '../../services/jobService';
 
 interface JobCardProps {
   job: JobResponse;
-  onApply?: (jobId: number) => void;
-  onSave?: (jobId: number) => void;
+  onApply?: (jobId: string) => void;
+  onSave?: (jobId: string) => void;
   isSaved?: boolean;
 }
 
@@ -19,7 +18,6 @@ export const JobCard: React.FC<JobCardProps> = ({
   onSave,
   isSaved = false,
 }) => {
-  const { theme } = useTheme();
 
   const formatSalary = (salaryMin?: number, salaryMax?: number, currency = 'INR', period = 'month') => {
     if (!salaryMin && !salaryMax) return 'Salary not disclosed';
@@ -121,7 +119,7 @@ export const JobCard: React.FC<JobCardProps> = ({
         console.error('No job ID found');
         return;
       }
-      onApply?.(Number(jobId));
+      onApply?.(jobId);
     } catch (error) {
       console.error('Error applying to job:', error);
     }
@@ -134,7 +132,7 @@ export const JobCard: React.FC<JobCardProps> = ({
         console.error('No job ID found');
         return;
       }
-      onSave?.(Number(jobId));
+      onSave?.(jobId);
     } catch (error) {
       console.error('Error saving job:', error);
     }
