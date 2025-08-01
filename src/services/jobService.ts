@@ -178,7 +178,8 @@ class JobService {
   async getJobApplications(jobId: string): Promise<any[]> {
     try {
       console.log('JobService: Fetching applications for job:', jobId);
-      const response = await api.get(`/jobs/${jobId}/applications`);
+      // Use the correct endpoint for simple MongoDB jobs
+      const response = await api.get(`/mongodb-jobs/${jobId}/applications`);
       const applications = Array.isArray(response.data) ? response.data : [];
       console.log('JobService: Found applications:', applications.length);
       return applications;
@@ -191,7 +192,8 @@ class JobService {
   async updateApplicationStatus(applicationId: string, status: string, notes?: string): Promise<any> {
     try {
       console.log('JobService: Updating application status:', { applicationId, status, notes });
-      const response = await api.put(`/jobs/applications/${applicationId}/status`, {
+      // Use the correct endpoint for simple MongoDB jobs
+      const response = await api.put(`/mongodb-jobs/applications/${applicationId}/status`, {
         status,
         notes
       });

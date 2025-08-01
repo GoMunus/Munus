@@ -281,6 +281,120 @@ async def apply_to_job(job_id: str, application_data: Dict[str, Any]):
         )
 
 
+@router.get("/{job_id}/applications", response_model=List[Dict[str, Any]])
+async def get_job_applications(job_id: str):
+    """Get applications for a specific job"""
+    try:
+        print(f"🔍 Fetching applications for job: {job_id}")
+        
+        # Check if job exists
+        job = await db.jobs.find_one({"_id": ObjectId(job_id)})
+        if not job:
+            print(f"❌ Job not found: {job_id}")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Job not found"
+            )
+        
+        # Get all applications for this job
+        applications = []
+        async for app in db.job_applications.find({"job_id": job_id}):
+            app["_id"] = str(app["_id"])
+            applications.append(app)
+        
+        # Sort by created_at descending (newest first)
+        applications.sort(key=lambda x: x.get("created_at", ""), reverse=True)
+        
+        print(f"✅ Found {len(applications)} applications for job: {job_id}")
+        return applications
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error fetching applications: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get job applications: {str(e)}"
+        )
+
+
+@router.put("/applications/{application_id}/status", response_model=Dict[str, Any])
+async def update_application_status(
+    application_id: str, 
+    status_data: Dict[str, Any]
+):
+    """Update application status (accept/reject/waiting)"""
+    try:
+        print(f"🔄 Updating application {application_id} status to: {status_data.get('status')}")
+        
+        # Validate status
+        valid_statuses = ["pending", "accepted", "rejected", "waiting", "under_review"]
+        new_status = status_data.get("status")
+        if new_status not in valid_statuses:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid status. Must be one of: {valid_statuses}"
+            )
+        
+        # Check if application exists
+        application = await db.job_applications.find_one({"_id": ObjectId(application_id)})
+        if not application:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Application not found"
+            )
+        
+        # Update application status
+        update_data = {
+            "status": new_status,
+            "updated_at": datetime.utcnow()
+        }
+        
+        # Add notes if provided
+        if status_data.get("notes"):
+            update_data["employer_notes"] = status_data["notes"]
+        
+        result = await db.job_applications.update_one(
+            {"_id": ObjectId(application_id)},
+            {"$set": update_data}
+        )
+        
+        if result.modified_count == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Failed to update application status"
+            )
+        
+        # Get the updated application
+        updated_application = await db.job_applications.find_one({"_id": ObjectId(application_id)})
+        updated_application["_id"] = str(updated_application["_id"])
+        
+        # Send notification to job seeker about status change
+        try:
+            from app.services.notification_service import notification_service
+            await notification_service.create_status_update_notification(
+                applicant_id=application.get("applicant_id"),
+                status=new_status,
+                job_title=application.get("job_title", "Job"),
+                job_id=application.get("job_id"),
+                application_id=application_id
+            )
+        except Exception as notification_error:
+            print(f"Failed to send status update notification: {notification_error}")
+        
+        print(f"✅ Application status updated successfully: {application_id}")
+        return updated_application
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error updating application status: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update application status: {str(e)}"
+        )
+
+
 @router.get("/health", response_model=Dict[str, Any])
 async def health_check():
     """Health check for MongoDB connection"""

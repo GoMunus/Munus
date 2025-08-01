@@ -5,6 +5,7 @@ import { Badge } from '../ui/Badge';
 import { LoadingSpinner } from '../common/LoadingSpinner';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { ToastContainer, useToast } from '../common/Toast';
+import { ApplicationDetailModal } from './ApplicationDetailModal';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { jobService } from '../../services/jobService';
@@ -86,6 +87,11 @@ export const EmployerDashboard: React.FC<EmployerDashboardProps> = ({ onNavigate
   const { user } = useAuth();
   const { theme } = useTheme();
   const { toasts, removeToast, success, error: showError } = useToast();
+
+  // Helper function for date formatting
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString();
+  };
 
   const fetchJobs = async () => {
     try {
@@ -1047,6 +1053,15 @@ export const EmployerDashboard: React.FC<EmployerDashboardProps> = ({ onNavigate
             </div>
           </div>
         )}
+
+      {/* Application Detail Modal */}
+      <ApplicationDetailModal
+        application={selectedApplication}
+        isOpen={isApplicationDetailOpen}
+        onClose={() => setIsApplicationDetailOpen(false)}
+        onStatusUpdate={handleApplicationStatusUpdate}
+        isUpdating={updatingApplicationId === selectedApplication?._id}
+      />
     </div>
     </>
   );
