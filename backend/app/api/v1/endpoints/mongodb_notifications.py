@@ -12,7 +12,7 @@ def get_notifications_db():
 
 
 @router.get("/", response_model=List[MongoDBNotification])
-def list_notifications(
+async def list_notifications(
     user_id: str,
     skip: int = 0,
     limit: int = 20,
@@ -22,7 +22,7 @@ def list_notifications(
     try:
         cursor = notifications_collection.find({"user_id": user_id}).skip(skip).limit(limit).sort("created_at", -1)
         notifications = []
-        for notification in cursor:
+        async for notification in cursor:
             notification["_id"] = str(notification["_id"])
             notifications.append(MongoDBNotification(**notification))
         return notifications
@@ -31,7 +31,7 @@ def list_notifications(
 
 
 @router.get("/unread-count")
-def get_unread_count(
+async def get_unread_count(
     user_id: str = None,
     notifications_collection = Depends(get_notifications_db)
 ):
@@ -39,7 +39,7 @@ def get_unread_count(
     try:
         if not user_id:
             return {"unread_count": 0}
-        count = notifications_collection.count_documents({
+        count = await notifications_collection.count_documents({
             "user_id": user_id,
             "is_read": False
         })
@@ -49,13 +49,13 @@ def get_unread_count(
 
 
 @router.get("/{notification_id}", response_model=MongoDBNotification)
-def get_notification(
+async def get_notification(
     notification_id: str,
     notifications_collection = Depends(get_notifications_db)
 ):
     """Get a specific notification by ID"""
     try:
-        notification = notifications_collection.find_one({"_id": ObjectId(notification_id)})
+        notification = await notifications_collection.find_one({"_id": ObjectId(notification_id)})
         if not notification:
             raise HTTPException(status_code=404, detail="Notification not found")
         
@@ -68,7 +68,7 @@ def get_notification(
 
 
 @router.post("/", response_model=MongoDBNotification)
-def create_notification(
+async def create_notification(
     notification_data: dict,
     notifications_collection = Depends(get_notifications_db)
 ):
@@ -87,7 +87,7 @@ def create_notification(
             "read_at": notification_data.get("read_at")
         }
         
-        result = notifications_collection.insert_one(notification_doc)
+        result = await notifications_collection.insert_one(notification_doc)
         notification_doc["_id"] = str(result.inserted_id)
         
         return MongoDBNotification(**notification_doc)
@@ -96,13 +96,13 @@ def create_notification(
 
 
 @router.put("/{notification_id}/read")
-def mark_as_read(
+async def mark_as_read(
     notification_id: str,
     notifications_collection = Depends(get_notifications_db)
 ):
     """Mark a notification as read"""
     try:
-        result = notifications_collection.update_one(
+        result = await notifications_collection.update_one(
             {"_id": ObjectId(notification_id)},
             {
                 "$set": {
@@ -123,13 +123,13 @@ def mark_as_read(
 
 
 @router.put("/{notification_id}/archive")
-def archive_notification(
+async def archive_notification(
     notification_id: str,
     notifications_collection = Depends(get_notifications_db)
 ):
     """Archive a notification"""
     try:
-        result = notifications_collection.update_one(
+        result = await notifications_collection.update_one(
             {"_id": ObjectId(notification_id)},
             {"$set": {"is_archived": True}}
         )
@@ -145,13 +145,13 @@ def archive_notification(
 
 
 @router.delete("/{notification_id}")
-def delete_notification(
+async def delete_notification(
     notification_id: str,
     notifications_collection = Depends(get_notifications_db)
 ):
     """Delete a notification"""
     try:
-        result = notifications_collection.delete_one({"_id": ObjectId(notification_id)})
+        result = await notifications_collection.delete_one({"_id": ObjectId(notification_id)})
         if result.deleted_count == 0:
             raise HTTPException(status_code=404, detail="Notification not found")
         

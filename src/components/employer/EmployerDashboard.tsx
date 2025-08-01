@@ -90,7 +90,11 @@ export const EmployerDashboard: React.FC<EmployerDashboardProps> = ({ onNavigate
 
   // Helper function for date formatting
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString();
+    try {
+      return new Date(dateString).toLocaleDateString();
+    } catch (error) {
+      return 'Invalid Date';
+    }
   };
 
   const fetchJobs = async () => {
@@ -195,10 +199,6 @@ export const EmployerDashboard: React.FC<EmployerDashboardProps> = ({ onNavigate
   useEffect(() => {
     fetchJobs();
   }, []);
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString();
-  };
 
   const getDeleteMessage = () => {
     const { jobTitle, applicationsCount } = deleteDialog;
