@@ -1,10 +1,5 @@
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
-from app.db.database import get_db
-from app.api.deps import get_current_user
-from app.models.user import User
-from app.models.resume import Resume
-from app.schemas.resume import ResumeCreate, ResumeUpdate, ResumeResponse
 from app.services.google_drive_service import google_drive_service
 from app.services.pdf_generator import pdf_generator
 import os
@@ -20,141 +15,26 @@ class Session:
 router = APIRouter()
 
 
-@router.get("/", response_model=List[ResumeResponse])
-def get_resumes(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """Get user resumes"""
-    resumes = db.query(Resume).filter(
-        Resume.user_id == current_user.id
-    ).order_by(Resume.created_at.desc()).all()
-    
-    return resumes
+# @router.get("/", response_model=List[ResumeResponse])
+# def get_resumes(
+#     db: Session = Depends(get_db),
+#     current_user: User = Depends(get_current_user)
+# ):
+#     """Get user resumes"""
+#     resumes = db.query(Resume).filter(
+#         Resume.user_id == current_user.id
+#     ).order_by(Resume.created_at.desc()).all()
+#     
+#     return resumes
 
 
-@router.get("/{resume_id}", response_model=ResumeResponse)
-def get_resume(
-    resume_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """Get resume by ID"""
-    resume = db.query(Resume).filter(
-        Resume.id == resume_id,
-        Resume.user_id == current_user.id
-    ).first()
-    
-    if not resume:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Resume not found"
-        )
-    
-    return resume
-
-
-@router.post("/", response_model=ResumeResponse)
-def create_resume(
-    resume_data: ResumeCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """Create a new resume"""
-    db_resume = Resume(
-        title=resume_data.title,
-        summary=resume_data.summary,
-        template_id=resume_data.template_id,
-        is_public=resume_data.is_public,
-        user_id=current_user.id
-    )
-    
-    db.add(db_resume)
-    db.commit()
-    db.refresh(db_resume)
-    return db_resume
-
-
-@router.put("/{resume_id}", response_model=ResumeResponse)
-def update_resume(
-    resume_id: int,
-    resume_data: ResumeUpdate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """Update resume"""
-    resume = db.query(Resume).filter(
-        Resume.id == resume_id,
-        Resume.user_id == current_user.id
-    ).first()
-    
-    if not resume:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Resume not found"
-        )
-    
-    # Update resume
-    update_data = resume_data.dict(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(resume, field, value)
-    
-    db.commit()
-    db.refresh(resume)
-    return resume
-
-
-@router.delete("/{resume_id}")
-def delete_resume(
-    resume_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """Delete resume"""
-    resume = db.query(Resume).filter(
-        Resume.id == resume_id,
-        Resume.user_id == current_user.id
-    ).first()
-    
-    if not resume:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Resume not found"
-        )
-    
-    db.delete(resume)
-    db.commit()
-    return {"message": "Resume deleted successfully"}
-
-
-@router.post("/{resume_id}/set-default")
-def set_default_resume(
-    resume_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """Set resume as default"""
-    # First, unset all other resumes as default
-    db.query(Resume).filter(
-        Resume.user_id == current_user.id
-    ).update({"is_default": False})
-    
-    # Set this resume as default
-    resume = db.query(Resume).filter(
-        Resume.id == resume_id,
-        Resume.user_id == current_user.id
-    ).first()
-    
-    if not resume:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Resume not found"
-        )
-    
-    resume.is_default = True
-    db.commit()
-    
-    return {"message": "Resume set as default"}
+# All SQLAlchemy-based endpoints commented out for MongoDB-only setup
+# @router.get("/{resume_id}", response_model=ResumeResponse)
+# @router.post("/", response_model=ResumeResponse)  
+# @router.put("/{resume_id}", response_model=ResumeResponse)
+# @router.delete("/{resume_id}")
+# @router.post("/{resume_id}/set-default")
+# (All these endpoints depend on SQLAlchemy models that are not available in MongoDB setup)
 
 
 @router.post("/generate-pdf")
@@ -221,55 +101,15 @@ async def test_pdf_generation():
         }
 
 
-@router.post("/{resume_id}/upload-video")
-def upload_resume_video(
-    resume_id: int,
-    file: UploadFile = File(...),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """Upload a video for the resume (mock implementation)"""
-    resume = db.query(Resume).filter(
-        Resume.id == resume_id,
-        Resume.user_id == current_user.id
-    ).first()
-    if not resume:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Resume not found"
-        )
-    # Save file (mock)
-    video_url = f"/uploads/videos/{resume_id}_video.mp4"
-    return {"video_url": video_url}
-
-
-@router.post("/{resume_id}/upload-audio")
-def upload_resume_audio(
-    resume_id: int,
-    file: UploadFile = File(...),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
-    """Upload an audio for the resume (mock implementation)"""
-    resume = db.query(Resume).filter(
-        Resume.id == resume_id,
-        Resume.user_id == current_user.id
-    ).first()
-    if not resume:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Resume not found"
-        )
-    # Save file (mock)
-    voice_url = f"/uploads/audio/{resume_id}_audio.mp3"
-    return {"voice_url": voice_url}
+# @router.post("/{resume_id}/upload-video")
+# @router.post("/{resume_id}/upload-audio")
+# (Upload endpoints also depend on SQLAlchemy models - commented out for MongoDB setup)
 
 
 @router.post("/parse-google-drive")
 async def parse_google_drive_resume(
     file: UploadFile = File(...),
-    metadata: str = Form(...),
-    current_user: User = Depends(get_current_user)
+    metadata: str = Form(...)
 ):
     """Parse resume from Google Drive file"""
     try:
