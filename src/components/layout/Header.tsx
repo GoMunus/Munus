@@ -400,7 +400,7 @@ export const Header: React.FC<HeaderProps> = ({
                 }`}
               >
                 {isDark ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
-                <span>{isDark ? 'Switch to Light Theme' : 'Switch to Dark Theme'}</span>
+                <span>{isDark ? 'Switch to Light Theme' : 'Switch to Dark Neon Theme'}</span>
               </button>
               
               {!isAuthenticated && (

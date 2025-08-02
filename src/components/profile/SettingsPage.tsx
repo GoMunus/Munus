@@ -46,7 +46,11 @@ interface SettingsSection {
   color: string;
 }
 
-export const SettingsPage: React.FC = () => {
+interface SettingsPageProps {
+  onNavigate?: (view: 'home' | 'jobs' | 'resume' | 'profile' | 'create-profile' | 'dashboard' | 'post-job' | 'candidates' | 'faqs' | 'contact' | 'settings' | 'notifications') => void;
+}
+
+export const SettingsPage: React.FC<SettingsPageProps> = ({ onNavigate }) => {
   const { user, updateUser, logout } = useAuth();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -640,7 +644,13 @@ export const SettingsPage: React.FC = () => {
         <div className="flex items-center">
           <Button
             variant="ghost"
-            onClick={() => setActiveSection(null)}
+            onClick={() => {
+              if (activeSection) {
+                setActiveSection(null);
+              } else {
+                onNavigate?.('dashboard');
+              }
+            }}
             className="mr-3"
           >
             <ArrowLeft className="w-5 h-5" />

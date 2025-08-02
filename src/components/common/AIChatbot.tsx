@@ -24,6 +24,7 @@ interface Message {
 export const AIChatbot: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [isFullPage, setIsFullPage] = useState(false);
   const [showApiKeySetup, setShowApiKeySetup] = useState(false);
   const [apiKeyInput, setApiKeyInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([
@@ -163,7 +164,14 @@ export const AIChatbot: React.FC = () => {
   };
 
   const toggleMinimize = () => {
-    setIsMinimized(!isMinimized);
+    if (isFullPage) {
+      setIsFullPage(false);
+      setIsMinimized(false);
+    } else if (isMinimized) {
+      setIsMinimized(false);
+    } else {
+      setIsFullPage(true);
+    }
   };
 
   const handleApiKeySetup = () => {
@@ -189,12 +197,12 @@ export const AIChatbot: React.FC = () => {
   };
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 max-h-screen flex flex-col justify-end">
+    <div className={`${isFullPage ? 'fixed inset-0 z-50' : 'fixed bottom-4 right-4 z-50 max-h-screen flex flex-col justify-end'}`}>
       {/* Floating Chat Button */}
       {!isOpen && (
         <Button
           onClick={toggleChat}
-          className="w-14 h-14 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110"
+          className="w-14 h-14 rounded-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110"
         >
           <div className="relative">
             <MessageCircle className="w-6 h-6 text-white" />
@@ -205,18 +213,18 @@ export const AIChatbot: React.FC = () => {
 
       {/* Chat Window */}
       {isOpen && (
-        <Card className={`w-96 sm:w-96 max-w-[calc(100vw-2rem)] bg-white dark:bg-gray-800 shadow-2xl border-0 transition-all duration-300 ${
-          isMinimized ? 'h-16' : 'h-[600px] max-h-[calc(100vh-2rem)]'
+        <Card className={`${isFullPage ? 'w-full h-full' : 'w-96 sm:w-96 max-w-[calc(100vw-2rem)]'} bg-white shadow-2xl border-0 transition-all duration-300 ${
+          isMinimized ? 'h-16' : isFullPage ? 'h-full' : 'h-[600px] max-h-[calc(100vh-2rem)]'
         } flex flex-col`}>
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-t-lg">
+          <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-white text-gray-900 rounded-t-lg">
             <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
-                <Bot className="w-4 h-4" />
+              <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                <Bot className="w-4 h-4 text-green-600" />
               </div>
               <div>
-                <h3 className="font-semibold">Opusnex AI</h3>
-                <p className="text-xs text-blue-100">Powered by OpenAI</p>
+                <h3 className="font-semibold text-gray-900">Opusnex AI</h3>
+                <p className="text-xs text-gray-500">Powered by OpenAI</p>
               </div>
             </div>
             <div className="flex items-center space-x-1">
@@ -225,7 +233,7 @@ export const AIChatbot: React.FC = () => {
                   variant="ghost"
                   size="sm"
                   onClick={() => setShowApiKeySetup(!showApiKeySetup)}
-                  className="text-white hover:bg-white/20 p-1"
+                  className="text-gray-600 hover:bg-gray-100 p-1"
                   title="Setup OpenAI API Key"
                 >
                   🔑
@@ -235,15 +243,16 @@ export const AIChatbot: React.FC = () => {
                 variant="ghost"
                 size="sm"
                 onClick={toggleMinimize}
-                className="text-white hover:bg-white/20 p-1"
+                className="text-gray-600 hover:bg-gray-100 p-1"
+                title={isFullPage ? "Exit Full Page" : "Full Page"}
               >
-                {isMinimized ? <Maximize2 className="w-4 h-4" /> : <Minimize2 className="w-4 h-4" />}
+                {isFullPage ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
               </Button>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={toggleChat}
-                className="text-white hover:bg-white/20 p-1"
+                className="text-gray-600 hover:bg-gray-100 p-1"
               >
                 <X className="w-4 h-4" />
               </Button>
@@ -252,8 +261,8 @@ export const AIChatbot: React.FC = () => {
 
           {/* API Key Setup */}
           {!isMinimized && showApiKeySetup && (
-            <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border-b border-yellow-200 dark:border-yellow-800">
-              <p className="text-sm text-yellow-800 dark:text-yellow-200 mb-3">
+            <div className="p-4 bg-yellow-50 border-b border-yellow-200">
+              <p className="text-sm text-yellow-800 mb-3">
                 Please enter your OpenAI API key to start chatting:
               </p>
               <div className="flex space-x-2">
@@ -273,7 +282,7 @@ export const AIChatbot: React.FC = () => {
                   Save
                 </Button>
               </div>
-              <p className="text-xs text-yellow-600 dark:text-yellow-300 mt-2">
+              <p className="text-xs text-yellow-600 mt-2">
                 Your API key is stored locally and only used to make requests to OpenAI.
               </p>
             </div>
@@ -291,20 +300,20 @@ export const AIChatbot: React.FC = () => {
                     <div
                       className={`max-w-sm lg:max-w-lg px-4 py-3 rounded-lg shadow-sm ${
                         message.isUser
-                          ? 'bg-blue-600 text-white rounded-br-none'
-                          : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-bl-none'
+                          ? 'bg-green-600 text-white rounded-br-none'
+                          : 'bg-gray-100 text-gray-900 rounded-bl-none'
                       }`}
                     >
                       <div className="flex items-start space-x-2">
                         {!message.isUser && (
-                          <div className="w-6 h-6 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                          <div className="w-6 h-6 bg-gradient-to-r from-green-500 to-green-600 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
                             <Sparkles className="w-3 h-3 text-white" />
                           </div>
                         )}
                         <div className="flex-1">
                           <p className="text-sm whitespace-pre-wrap">{message.text}</p>
                           <p className={`text-xs mt-1 ${
-                            message.isUser ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'
+                            message.isUser ? 'text-green-100' : 'text-gray-500'
                           }`}>
                             {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </p>
@@ -321,7 +330,7 @@ export const AIChatbot: React.FC = () => {
                 
                 {isLoading && (
                   <div className="flex justify-start">
-                    <div className="bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg rounded-bl-none px-4 py-2">
+                    <div className="bg-gray-100 text-gray-900 rounded-lg rounded-bl-none px-4 py-2">
                       <div className="flex items-center space-x-2">
                         <LoadingSpinner size="sm" />
                         <span className="text-sm">Opusnex AI is thinking...</span>
@@ -334,19 +343,19 @@ export const AIChatbot: React.FC = () => {
               </div>
 
               {/* Input Area */}
-              <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+              <div className="p-4 border-t border-gray-200 bg-gray-50">
                 {!checkApiKey() ? (
-                  <div className="text-center">
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                      Click the 🔑 button above to set up your OpenAI API key
-                    </p>
-                    <Button
-                      onClick={() => setShowApiKeySetup(true)}
-                      className="bg-blue-600 hover:bg-blue-700 text-white"
-                    >
-                      Setup API Key
-                    </Button>
-                  </div>
+                                      <div className="text-center">
+                      <p className="text-sm text-gray-600 mb-3">
+                        Click the 🔑 button above to set up your OpenAI API key
+                      </p>
+                      <Button
+                        onClick={() => setShowApiKeySetup(true)}
+                        className="bg-green-600 hover:bg-green-700 text-white"
+                      >
+                        Setup API Key
+                      </Button>
+                    </div>
                 ) : (
                   <>
                     <div className="flex space-x-2">
@@ -356,7 +365,7 @@ export const AIChatbot: React.FC = () => {
                         onChange={(e) => setInputValue(e.target.value)}
                         onKeyPress={handleKeyPress}
                         placeholder="Ask OpusBot anything..."
-                        className="flex-1 resize-none rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-3 py-2 text-sm placeholder-gray-500 dark:placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 min-h-[2.5rem] max-h-24"
+                        className="flex-1 resize-none rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm placeholder-gray-500 focus:border-green-500 focus:outline-none focus:ring-1 focus:ring-green-500 min-h-[2.5rem] max-h-24"
                         disabled={isLoading}
                         rows={1}
                         style={{ 
@@ -372,12 +381,12 @@ export const AIChatbot: React.FC = () => {
                       <Button
                         onClick={handleSendMessage}
                         disabled={!inputValue.trim() || isLoading}
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 h-10"
+                        className="bg-green-600 hover:bg-green-700 text-white px-3 h-10"
                       >
                         <Send className="w-4 h-4" />
                       </Button>
                     </div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
+                    <p className="text-xs text-gray-500 mt-2 text-center">
                       Press Enter to send • OpusBot AI Assistant
                     </p>
                   </>

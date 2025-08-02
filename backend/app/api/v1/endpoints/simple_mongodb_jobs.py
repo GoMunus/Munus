@@ -243,6 +243,11 @@ async def apply_to_job(job_id: str, application_data: Dict[str, Any]):
             "status": "pending"
         })
         
+        # Ensure applicant_email is included
+        if not application_data.get("applicant_email"):
+            print("⚠️ Warning: No applicant_email provided in application data")
+            application_data["applicant_email"] = "unknown@example.com"
+        
         # Create application
         result = await db.job_applications.insert_one(application_data)
         application_data["_id"] = str(result.inserted_id)
@@ -325,10 +330,13 @@ async def update_application_status(
 ):
     """Update application status (accept/reject/waiting)"""
     try:
-        print(f"🔄 Updating application {application_id} status to: {status_data.get('status')}")
+        print(f"🔄 Updating application {application_id}")
+        print(f"🔄 Received status_data: {status_data}")
+        print(f"🔄 Status: {status_data.get('status')}")
+        print(f"🔄 Notes: {status_data.get('notes')}")
         
         # Validate status
-        valid_statuses = ["pending", "accepted", "rejected", "waiting", "under_review"]
+        valid_statuses = ["pending", "accepted", "rejected", "waiting", "under_review", "shortlisted", "interview_scheduled"]
         new_status = status_data.get("status")
         if new_status not in valid_statuses:
             raise HTTPException(
@@ -337,11 +345,18 @@ async def update_application_status(
             )
         
         # Check if application exists
-        application = await db.job_applications.find_one({"_id": ObjectId(application_id)})
-        if not application:
+        try:
+            application = await db.job_applications.find_one({"_id": ObjectId(application_id)})
+            if not application:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Application not found"
+                )
+        except Exception as e:
+            print(f"❌ Error finding application: {e}")
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Application not found"
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid application ID format: {application_id}"
             )
         
         # Update application status
@@ -354,20 +369,40 @@ async def update_application_status(
         if status_data.get("notes"):
             update_data["employer_notes"] = status_data["notes"]
         
-        result = await db.job_applications.update_one(
-            {"_id": ObjectId(application_id)},
-            {"$set": update_data}
-        )
-        
-        if result.modified_count == 0:
+        try:
+            result = await db.job_applications.update_one(
+                {"_id": ObjectId(application_id)},
+                {"$set": update_data}
+            )
+            
+            if result.modified_count == 0:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Failed to update application status"
+                )
+        except Exception as e:
+            print(f"❌ Error updating application: {e}")
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Failed to update application status"
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Database error: {str(e)}"
             )
         
         # Get the updated application
-        updated_application = await db.job_applications.find_one({"_id": ObjectId(application_id)})
-        updated_application["_id"] = str(updated_application["_id"])
+        try:
+            updated_application = await db.job_applications.find_one({"_id": ObjectId(application_id)})
+            if updated_application:
+                updated_application["_id"] = str(updated_application["_id"])
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Failed to retrieve updated application"
+                )
+        except Exception as e:
+            print(f"❌ Error retrieving updated application: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to retrieve updated application: {str(e)}"
+            )
         
         # Send notification to job seeker about status change
         try:
@@ -392,6 +427,82 @@ async def update_application_status(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to update application status: {str(e)}"
+        )
+
+
+@router.get("/applications/by-email/{email}", response_model=List[Dict[str, Any]])
+async def get_applications_by_email(email: str):
+    """Get all applications for a specific email address"""
+    try:
+        print(f"Fetching applications for email: {email}")
+        
+        # First, let's check what collections exist and what's in them
+        collections = await db.list_collection_names()
+        print(f"Available collections: {collections}")
+        
+        # Try to find applications in different possible collections
+        applications = []
+        
+        # Try job_applications collection first
+        try:
+            cursor = db.job_applications.find({"applicant_email": email})
+            async for app in cursor:
+                app["_id"] = str(app["_id"])
+                app["job_id"] = str(app["job_id"])
+                applications.append(app)
+            print(f"Found {len(applications)} applications in job_applications collection")
+        except Exception as e:
+            print(f"Error searching job_applications collection: {e}")
+        
+        # If no applications found, try applications collection
+        if len(applications) == 0:
+            try:
+                cursor = db.applications.find({"applicant_email": email})
+                async for app in cursor:
+                    app["_id"] = str(app["_id"])
+                    app["job_id"] = str(app["job_id"])
+                    applications.append(app)
+                print(f"Found {len(applications)} applications in applications collection")
+            except Exception as e:
+                print(f"Error searching applications collection: {e}")
+        
+        # If still no applications, try a broader search
+        if len(applications) == 0:
+            try:
+                # Search for any document containing this email
+                cursor = db.job_applications.find({})
+                async for app in cursor:
+                    if app.get("applicant_email") == email:
+                        app["_id"] = str(app["_id"])
+                        app["job_id"] = str(app["job_id"])
+                        applications.append(app)
+                print(f"Found {len(applications)} applications in broad search")
+            except Exception as e:
+                print(f"Error in broad search: {e}")
+        
+        # Get job details for each application
+        for app in applications:
+            try:
+                job = await db.jobs.find_one({"_id": ObjectId(app["job_id"])})
+                if job:
+                    app["job_title"] = job.get("title", "Unknown Job")
+                    app["company_name"] = job.get("company_name", "Unknown Company")
+                else:
+                    app["job_title"] = "Job Not Found"
+                    app["company_name"] = "Unknown Company"
+            except Exception as jobError:
+                print(f"Error fetching job details for {app['job_id']}: {jobError}")
+                app["job_title"] = "Job Not Found"
+                app["company_name"] = "Unknown Company"
+        
+        print(f"Final result: Found {len(applications)} applications for {email}")
+        return applications
+        
+    except Exception as e:
+        print(f"Error fetching applications by email: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch applications: {str(e)}"
         )
 
 

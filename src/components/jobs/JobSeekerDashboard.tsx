@@ -75,9 +75,11 @@ export const JobSeekerDashboard: React.FC<JobSeekerDashboardProps> = ({ onNaviga
     savedJobs: 0,
     interviewsScheduled: 0
   });
+  const [previousStats, setPreviousStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'applications' | 'jobs' | 'activity'>('overview');
+  const [isUpdating, setIsUpdating] = useState(false);
   const [selectedJob, setSelectedJob] = useState<JobResponse | null>(null);
   const [isApplicationModalOpen, setIsApplicationModalOpen] = useState(false);
   const { user } = useAuth();
@@ -86,6 +88,29 @@ export const JobSeekerDashboard: React.FC<JobSeekerDashboardProps> = ({ onNaviga
   const fetchApplications = async () => {
     try {
       const apps = await jobService.getMyApplications();
+      
+      // Check for status changes and trigger notifications
+      if (applications.length > 0) {
+        apps.forEach(newApp => {
+          const oldApp = applications.find(old => old._id === newApp._id);
+          if (oldApp && oldApp.status !== newApp.status) {
+            console.log(`Application status changed: ${oldApp.status} -> ${newApp.status}`);
+            
+            // Show appropriate notification based on status change
+            if (newApp.status === 'shortlisted') {
+              success('Application Shortlisted!', `Your application for ${newApp.job_title || 'this position'} has been shortlisted!`);
+            } else if (newApp.status === 'accepted') {
+              success('Application Accepted!', `Congratulations! Your application for ${newApp.job_title || 'this position'} has been accepted!`);
+            } else if (newApp.status === 'rejected') {
+              // Don't show success toast for rejections, maybe a different type of notification
+              console.log('Application rejected:', newApp);
+            } else if (newApp.status === 'interview_scheduled') {
+              success('Interview Scheduled!', `An interview has been scheduled for ${newApp.job_title || 'this position'}!`);
+            }
+          }
+        });
+      }
+      
       setApplications(apps);
     } catch (err: any) {
       console.error('Error fetching applications:', err);
@@ -124,9 +149,23 @@ export const JobSeekerDashboard: React.FC<JobSeekerDashboardProps> = ({ onNaviga
 
   const calculateStats = () => {
     const total = applications.length;
-    const pending = applications.filter(app => app.status.toLowerCase() === 'pending').length;
-    const shortlisted = applications.filter(app => app.status.toLowerCase() === 'shortlisted').length;
-    const rejected = applications.filter(app => app.status.toLowerCase() === 'rejected').length;
+    
+    // Enhanced status tracking - handle all possible statuses
+    const pending = applications.filter(app => 
+      ['pending', 'under_review', 'waiting'].includes(app.status.toLowerCase())
+    ).length;
+    
+    const shortlisted = applications.filter(app => 
+      ['shortlisted', 'interview_scheduled'].includes(app.status.toLowerCase())
+    ).length;
+    
+    const rejected = applications.filter(app => 
+      app.status.toLowerCase() === 'rejected'
+    ).length;
+    
+    const accepted = applications.filter(app => 
+      app.status.toLowerCase() === 'accepted'
+    ).length;
     
     // Calculate profile completion based on user data
     let completion = 0;
@@ -136,21 +175,58 @@ export const JobSeekerDashboard: React.FC<JobSeekerDashboardProps> = ({ onNaviga
       completion = Math.round((filledFields.length / fields.length) * 100);
     }
 
-    setStats({
+    // Count unread notifications
+    const unreadCount = notifications.filter(n => !n.is_read).length;
+
+    // Count interviews scheduled
+    const interviewsScheduled = applications.filter(app => 
+      app.status.toLowerCase() === 'interview_scheduled'
+    ).length;
+
+    const newStats = {
       totalApplications: total,
       pendingApplications: pending,
       shortlistedApplications: shortlisted,
       rejectedApplications: rejected,
       profileCompletion: completion,
-      unreadNotifications: notifications.filter(n => !n.is_read).length,
+      unreadNotifications: unreadCount,
       savedJobs: 0, // Will be implemented when saved jobs feature is added
-      interviewsScheduled: 0 // Will be implemented when interview scheduling is added
+      interviewsScheduled: interviewsScheduled
+    };
+
+    // Store previous stats for comparison
+    setPreviousStats(stats);
+    setStats(newStats);
+
+    // Show toast notifications for significant changes
+    if (previousStats) {
+      if (newStats.totalApplications > previousStats.totalApplications) {
+        success('New Application', 'Your application has been submitted successfully!');
+      }
+      if (newStats.shortlistedApplications > previousStats.shortlistedApplications) {
+        success('Application Shortlisted', 'Congratulations! Your application has been shortlisted!');
+      }
+      if (newStats.unreadNotifications > previousStats.unreadNotifications) {
+        success('New Notification', 'You have new notifications!');
+      }
+    }
+
+    // Log statistics for debugging
+    console.log('Dashboard Stats Updated:', {
+      total,
+      pending,
+      shortlisted,
+      rejected,
+      accepted,
+      unreadCount,
+      interviewsScheduled,
+      applications: applications.map(app => ({ id: app._id, status: app.status }))
     });
   };
 
   const fetchData = async () => {
-      try {
-        setLoading(true);
+    try {
+      setLoading(true);
       setError(null);
       await Promise.all([
         fetchApplications(), 
@@ -161,10 +237,24 @@ export const JobSeekerDashboard: React.FC<JobSeekerDashboardProps> = ({ onNaviga
     } catch (err: any) {
       console.error('Error fetching dashboard data:', err);
       setError(err.message || 'Failed to fetch dashboard data');
-      } finally {
-        setLoading(false);
-      }
-    };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const refreshData = async () => {
+    try {
+      setIsUpdating(true);
+      await Promise.all([
+        fetchApplications(),
+        fetchNotifications()
+      ]);
+    } catch (err: any) {
+      console.error('Error refreshing data:', err);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   const handleApplyToJob = (job: JobResponse) => {
     setSelectedJob(job);
@@ -172,14 +262,44 @@ export const JobSeekerDashboard: React.FC<JobSeekerDashboardProps> = ({ onNaviga
   };
 
   const handleApplicationSuccess = () => {
-    // Refresh data to update application counts
+    // Immediately update applications list with the new application
+    const newApplication: Application = {
+      _id: `temp_${Date.now()}`, // Temporary ID until real data is fetched
+      job_id: selectedJob?._id || selectedJob?.id || '',
+      applicant_name: userProfile?.name || user?.name || 'Applicant',
+      applicant_email: userProfile?.email || user?.email || '',
+      cover_letter: '',
+      status: 'pending', // New applications start as pending
+      created_at: new Date().toISOString(),
+      job_title: selectedJob?.title,
+      company_name: selectedJob?.company_name
+    };
+
+    // Add the new application to the list
+    setApplications(prev => [newApplication, ...prev]);
+    
+    // Recalculate stats immediately
+    setTimeout(() => {
+      calculateStats();
+    }, 100);
+
+    // Refresh data in background to get real application data
     fetchData();
+    
     // Show success message
     success('Application Submitted', 'Your application has been submitted successfully!');
   };
 
+  // Polling for real-time updates
   useEffect(() => {
     fetchData();
+    
+    // Set up polling for real-time updates every 30 seconds
+    const interval = setInterval(() => {
+      refreshData();
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -261,11 +381,12 @@ export const JobSeekerDashboard: React.FC<JobSeekerDashboardProps> = ({ onNaviga
             <Button
               variant="outline"
               size="sm"
-              onClick={fetchData}
+              onClick={refreshData}
+              disabled={isUpdating}
               className="flex items-center text-xs sm:text-sm"
             >
-              <RefreshCw className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-              <span className="hidden sm:inline">Refresh</span>
+              <RefreshCw className={`w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 ${isUpdating ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">{isUpdating ? 'Updating...' : 'Refresh'}</span>
             </Button>
           </div>
         </div>
@@ -305,7 +426,10 @@ export const JobSeekerDashboard: React.FC<JobSeekerDashboardProps> = ({ onNaviga
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
-        <Card className="p-4 sm:p-6 hover-lift transition-all duration-300">
+        <Card 
+          className="p-4 sm:p-6 cursor-pointer border-2 border-gray-200 dark:border-gray-700"
+          onClick={() => setActiveTab('applications')}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">Total Applications</p>
@@ -315,44 +439,127 @@ export const JobSeekerDashboard: React.FC<JobSeekerDashboardProps> = ({ onNaviga
               <Briefcase className="w-4 h-4 sm:w-6 sm:h-6 text-blue-600 dark:text-blue-400" />
             </div>
           </div>
+          <div className="mt-2">
+            <p className="text-xs text-blue-600 dark:text-blue-400">
+              Click to view all applications
+            </p>
+          </div>
         </Card>
 
-        <Card className="p-4 sm:p-6 hover-lift transition-all duration-300">
+        <Card 
+          className="p-4 sm:p-6 cursor-pointer border-2 border-gray-200 dark:border-gray-700"
+          onClick={() => setActiveTab('applications')}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">Pending Review</p>
-              <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">{stats.pendingApplications}</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+                {stats.pendingApplications > 0 ? (
+                  <span className="text-yellow-600 dark:text-yellow-400">{stats.pendingApplications}</span>
+                ) : (
+                  stats.pendingApplications
+                )}
+              </p>
             </div>
             <div className="p-2 sm:p-3 bg-yellow-100 dark:bg-yellow-900/30 rounded-full">
               <Clock className="w-4 h-4 sm:w-6 sm:h-6 text-yellow-600 dark:text-yellow-400" />
             </div>
           </div>
+          <div className="mt-2">
+            <p className="text-xs text-yellow-600 dark:text-yellow-400">
+              {stats.pendingApplications > 0 ? `${stats.pendingApplications} applications under review` : 'No pending applications'}
+            </p>
+          </div>
         </Card>
 
-        <Card className="p-4 sm:p-6 hover-lift transition-all duration-300">
+        <Card 
+          className="p-4 sm:p-6 cursor-pointer border-2 border-gray-200 dark:border-gray-700"
+          onClick={() => setActiveTab('applications')}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">Shortlisted</p>
-              <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">{stats.shortlistedApplications}</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+                {stats.shortlistedApplications > 0 ? (
+                  <span className="text-green-600 dark:text-green-400">{stats.shortlistedApplications}</span>
+                ) : (
+                  stats.shortlistedApplications
+                )}
+              </p>
             </div>
             <div className="p-2 sm:p-3 bg-green-100 dark:bg-green-900/30 rounded-full">
               <CheckCircle className="w-4 h-4 sm:w-6 sm:h-6 text-green-600 dark:text-green-400" />
             </div>
           </div>
+          <div className="mt-2">
+            <p className="text-xs text-green-600 dark:text-green-400">
+              {stats.shortlistedApplications > 0 ? `${stats.shortlistedApplications} applications shortlisted` : 'No shortlisted applications'}
+            </p>
+          </div>
         </Card>
 
-        <Card className="p-4 sm:p-6 hover-lift transition-all duration-300">
+        <Card 
+          className="p-4 sm:p-6 cursor-pointer border-2 border-gray-200 dark:border-gray-700"
+          onClick={() => onNavigate?.('notifications')}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs sm:text-sm font-medium text-gray-600 dark:text-gray-400">Unread Notifications</p>
-              <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">{stats.unreadNotifications}</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+                {stats.unreadNotifications > 0 ? (
+                  <span className="text-purple-600 dark:text-purple-400">{stats.unreadNotifications}</span>
+                ) : (
+                  stats.unreadNotifications
+                )}
+              </p>
             </div>
             <div className="p-2 sm:p-3 bg-purple-100 dark:bg-purple-900/30 rounded-full">
               <Bell className="w-4 h-4 sm:w-6 sm:h-6 text-purple-600 dark:text-purple-400" />
             </div>
           </div>
+          {stats.unreadNotifications > 0 && (
+            <div className="mt-2">
+              <p className="text-xs text-purple-600 dark:text-purple-400">
+                Click to view notifications
+              </p>
+            </div>
+          )}
         </Card>
       </div>
+
+      {/* Application Status Summary */}
+      {stats.totalApplications > 0 && (
+        <Card className="p-4 sm:p-6 mb-6 sm:mb-8 bg-gradient-to-r from-gray-50 to-blue-50 dark:from-gray-800 dark:to-blue-900/20">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+            <BarChart3 className="w-5 h-5 mr-2 text-blue-600" />
+            Application Status Summary
+          </h3>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-600">{stats.totalApplications}</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Total</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-yellow-600">{stats.pendingApplications}</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Pending</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-600">{stats.shortlistedApplications}</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Shortlisted</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-red-600">{stats.rejectedApplications}</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Rejected</div>
+            </div>
+          </div>
+          {stats.interviewsScheduled > 0 && (
+            <div className="mt-4 text-center">
+              <div className="text-lg font-semibold text-purple-600">{stats.interviewsScheduled}</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Interviews Scheduled</div>
+            </div>
+          )}
+        </Card>
+      )}
 
       {/* Quick Actions */}
       <Card className="p-4 sm:p-6 mb-6 sm:mb-8">

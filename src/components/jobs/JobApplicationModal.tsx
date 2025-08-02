@@ -142,9 +142,18 @@ export const JobApplicationModal: React.FC<JobApplicationModalProps> = ({
         throw new Error('Invalid job ID');
       }
 
+      // Add user information to the application data
+      const applicationData = {
+        ...formData,
+        applicant_name: user?.name || authUser?.name || 'Applicant',
+        applicant_email: user?.email || authUser?.email || userProfile?.email || '',
+        applicant_id: user?._id || authUser?._id || userProfile?._id || ''
+      };
+
       // TEMPORARY: Use simple endpoint to bypass authentication
       console.log('JobApplicationModal: Using simple endpoint to bypass authentication');
-      await jobService.simpleApplyForJob(jobId, formData);
+      console.log('JobApplicationModal: Application data with user info:', applicationData);
+      await jobService.simpleApplyForJob(jobId, applicationData);
       
       // Set success message
       setSuccess('Application submitted successfully! The employer will review your application.');

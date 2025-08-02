@@ -217,7 +217,7 @@ const AppContent: React.FC = () => {
         case 'contact':
           return <ContactPage />;
         case 'settings':
-          return <SettingsPage />;
+          return <SettingsPage onNavigate={handleNavigate} />;
         case 'notifications':
           return <NotificationsPage onNavigate={handleNavigate} />;
         default:
@@ -275,8 +275,8 @@ const AppContent: React.FC = () => {
       {/* Toast Notifications */}
       <ToastContainer toasts={toasts} onRemove={removeToast} />
       
-      {/* AI Chatbot */}
-      <AIChatbot />
+      {/* AI Chatbot - Only show on dashboard and related pages */}
+      {(currentView === 'dashboard' || currentView === 'post-job') && <AIChatbot />}
     </div>
   );
 };

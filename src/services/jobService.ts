@@ -66,10 +66,39 @@ class JobService {
   async getMyApplications(): Promise<any[]> {
     try {
       console.log('JobService: Fetching my applications...');
-      const response = await api.get('/jobs/applications/my-applications');
-      const applications = Array.isArray(response.data) ? response.data : [];
-      console.log('JobService: Found my applications:', applications.length);
-      return applications;
+      
+      // Get current user from localStorage
+      const userStr = localStorage.getItem('skillglide-user');
+      if (!userStr) {
+        console.log('JobService: No user found in localStorage');
+        return [];
+      }
+      
+      const user = JSON.parse(userStr);
+      const userEmail = user.email || user.email_address;
+      
+      if (!userEmail) {
+        console.log('JobService: No user email found');
+        return [];
+      }
+      
+      console.log('JobService: Fetching applications for email:', userEmail);
+      
+      // Try the simple endpoint first (no authentication required)
+      try {
+        const response = await api.get(`/mongodb-jobs/applications/by-email/${encodeURIComponent(userEmail)}`);
+        const applications = Array.isArray(response.data) ? response.data : [];
+        console.log('JobService: Found applications via email:', applications.length);
+        return applications;
+      } catch (emailError: any) {
+        console.log('JobService: Email endpoint failed, trying my-applications:', emailError.message);
+        
+        // Fallback to the authenticated endpoint
+        const response = await api.get('/jobs/applications/my-applications');
+        const applications = Array.isArray(response.data) ? response.data : [];
+        console.log('JobService: Found my applications:', applications.length);
+        return applications;
+      }
     } catch (error: any) {
       console.error('JobService: Error fetching my applications:', error);
       return [];
@@ -192,15 +221,22 @@ class JobService {
   async updateApplicationStatus(applicationId: string, status: string, notes?: string): Promise<any> {
     try {
       console.log('JobService: Updating application status:', { applicationId, status, notes });
-      // Use the correct endpoint for simple MongoDB jobs
-      const response = await api.put(`/mongodb-jobs/applications/${applicationId}/status`, {
+      console.log('JobService: Making request to:', `/mongodb-jobs/applications/${applicationId}/status`);
+      
+      const requestData = {
         status,
         notes
-      });
+      };
+      console.log('JobService: Request data:', requestData);
+      
+      // Use the correct endpoint for simple MongoDB jobs
+      const response = await api.put(`/mongodb-jobs/applications/${applicationId}/status`, requestData);
       console.log('JobService: Application status updated successfully:', response.data);
       return response.data;
     } catch (error: any) {
       console.error('JobService: Error updating application status:', error);
+      console.error('JobService: Error response:', error.response?.data);
+      console.error('JobService: Error status:', error.response?.status);
       throw error;
     }
   }
