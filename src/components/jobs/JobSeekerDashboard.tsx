@@ -613,7 +613,7 @@ export const JobSeekerDashboard: React.FC<JobSeekerDashboardProps> = ({ onNaviga
             onClick={() => setActiveTab(tab.id as any)}
             className={`flex items-center px-3 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-all duration-200 whitespace-nowrap flex-shrink-0 ${
               activeTab === tab.id
-                ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                ? 'bg-white dark:bg-gray-700 text-blue-700 dark:text-blue-400 shadow-sm border border-blue-200 dark:border-blue-600'
                 : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
             }`}
           >
@@ -996,47 +996,7 @@ export const JobSeekerDashboard: React.FC<JobSeekerDashboardProps> = ({ onNaviga
       )}
 
       {activeTab === 'activity' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8">
-          {/* Recent Notifications */}
-          <Card className="p-4 sm:p-6">
-            <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white mb-4 sm:mb-6 flex items-center">
-              <Bell className="w-4 h-4 sm:w-5 sm:h-5 mr-2 text-purple-600 dark:text-purple-400" />
-              Recent Notifications
-            </h3>
-            
-            <div className="space-y-4">
-              {notifications.length === 0 ? (
-                <div className="text-center py-8">
-                  <Bell className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                  <p className="text-gray-600 dark:text-gray-400 text-sm">
-                    No notifications yet
-                  </p>
-                </div>
-              ) : (
-                notifications.map((notification) => (
-                  <div key={notification.id} className="flex items-start space-x-3 p-4 rounded-lg bg-gray-50 dark:bg-gray-800">
-                    <div className="flex-shrink-0">
-                      <div className={`w-3 h-3 rounded-full ${
-                        notification.is_read ? 'bg-gray-300 dark:bg-gray-600' : 'bg-blue-500'
-                      }`}></div>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">
-                        {notification.title}
-                      </p>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                        {notification.message}
-                      </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
-                        {formatDate(notification.created_at)}
-                      </p>
-                    </div>
-                  </div>
-                ))
-              )}
-              </div>
-            </Card>
-
+        <div className="grid grid-cols-1 gap-4 sm:gap-8">
           {/* Application Timeline */}
           <Card className="p-4 sm:p-6">
             <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white mb-4 sm:mb-6 flex items-center">
