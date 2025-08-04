@@ -33,11 +33,22 @@ export interface JobResponse {
 class JobService {
   async getJobs(filters?: Partial<JobFilters>): Promise<JobResponse[]> {
     try {
-      const response = await api.get<JobResponse[]>('/jobs/', filters);
+      // Try the MongoDB jobs endpoint first (where our sample jobs are)
+      const response = await api.get<JobResponse[]>('/mongodb-jobs/', filters);
+      console.log('JobService: Fetched jobs from MongoDB endpoint:', response.data);
       return Array.isArray(response.data) ? response.data : [];
     } catch (error: any) {
-      console.error('Error fetching jobs:', error);
-      return []; // Return empty array instead of throwing
+      console.error('JobService: Error fetching jobs from MongoDB endpoint:', error);
+      
+      // Fallback to regular jobs endpoint
+      try {
+        const fallbackResponse = await api.get<JobResponse[]>('/jobs/', filters);
+        console.log('JobService: Fetched jobs from fallback endpoint:', fallbackResponse.data);
+        return Array.isArray(fallbackResponse.data) ? fallbackResponse.data : [];
+      } catch (fallbackError: any) {
+        console.error('JobService: Error fetching jobs from fallback endpoint:', fallbackError);
+        return []; // Return empty array instead of throwing
+      }
     }
   }
 

@@ -42,7 +42,7 @@ export const JobProvider: React.FC<JobProviderProps> = ({ children }) => {
     error,
     refetch: refetchJobs,
   } = useApi(() => jobService.getJobs(filters), {
-    immediate: isAuthenticated, // Only fetch jobs if user is authenticated
+    immediate: true, // Always fetch jobs, regardless of authentication status
     onError: (error) => {
       console.error('Failed to fetch jobs:', error);
     },

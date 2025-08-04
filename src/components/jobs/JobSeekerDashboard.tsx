@@ -120,8 +120,10 @@ export const JobSeekerDashboard: React.FC<JobSeekerDashboardProps> = ({ onNaviga
 
   const fetchAvailableJobs = async () => {
     try {
+      console.log('JobSeekerDashboard: Fetching available jobs...');
       const jobs = await jobService.getJobs();
-      setAvailableJobs(jobs);
+      console.log('JobSeekerDashboard: Fetched jobs:', jobs?.length || 0);
+      setAvailableJobs(Array.isArray(jobs) ? jobs : []);
     } catch (err: any) {
       console.error('Error fetching available jobs:', err);
       setAvailableJobs([]);
@@ -527,39 +529,7 @@ export const JobSeekerDashboard: React.FC<JobSeekerDashboardProps> = ({ onNaviga
         </Card>
       </div>
 
-      {/* Application Status Summary */}
-      {stats.totalApplications > 0 && (
-        <Card className="p-4 sm:p-6 mb-6 sm:mb-8 bg-gradient-to-r from-gray-50 to-blue-50 dark:from-gray-800 dark:to-blue-900/20">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
-            <BarChart3 className="w-5 h-5 mr-2 text-blue-600" />
-            Application Status Summary
-          </h3>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">{stats.totalApplications}</div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">Total</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-yellow-600">{stats.pendingApplications}</div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">Pending</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">{stats.shortlistedApplications}</div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">Shortlisted</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-red-600">{stats.rejectedApplications}</div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">Rejected</div>
-            </div>
-          </div>
-          {stats.interviewsScheduled > 0 && (
-            <div className="mt-4 text-center">
-              <div className="text-lg font-semibold text-purple-600">{stats.interviewsScheduled}</div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">Interviews Scheduled</div>
-            </div>
-          )}
-        </Card>
-      )}
+
 
       {/* Quick Actions */}
       <Card className="p-4 sm:p-6 mb-6 sm:mb-8">

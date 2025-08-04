@@ -5,6 +5,7 @@ import { ProfileCreation } from './components/profile/ProfileCreation';
 import { ProfilePage } from './components/profile/ProfilePage';
 import { JobFilters } from './components/jobs/JobFilters';
 import { JobList } from './components/jobs/JobList';
+import { JobTest } from './components/jobs/JobTest';
 import { JobSeekerDashboard } from './components/jobs/JobSeekerDashboard';
 import { ResumeBuilder } from './components/resume/ResumeBuilder';
 import { EmployerDashboard } from './components/employer/EmployerDashboard';
@@ -157,6 +158,7 @@ const AppContent: React.FC = () => {
                     }
                   </p>
                 </div>
+                <JobTest />
                 <JobFilters />
                 <JobList />
               </div>
