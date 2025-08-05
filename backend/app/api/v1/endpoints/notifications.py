@@ -1,25 +1,29 @@
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
-# from sqlalchemy.orm import Session  # Removed for MongoDB-only setup
-from app.db.database import get_db
+from app.db.database import get_db, get_notifications_collection
 from app.api.deps import get_current_user
-from app.models.user import User
-from app.models.notification import Notification
+from app.schemas.mongodb_schemas import MongoDBUser as User
+from app.schemas.mongodb_schemas import MongoDBNotification as Notification
 from app.schemas.notification import NotificationResponse, NotificationUpdate
+from bson import ObjectId
 
 router = APIRouter()
 
 
 @router.get("/", response_model=List[NotificationResponse])
-def get_notifications(
-    db: Session = Depends(get_db),
+async def get_notifications(
     current_user: User = Depends(get_current_user)
 ):
     """Get user notifications"""
     try:
-        notifications = db.query(Notification).filter(
-            Notification.user_id == current_user.id
-        ).order_by(Notification.created_at.desc()).all()
+        notifications_collection = get_notifications_collection()
+        notifications = await notifications_collection.find(
+            {"user_id": str(current_user.id)}
+        ).sort("created_at", -1).to_list(length=None)
+        
+        # Convert ObjectId to string
+        for notification in notifications:
+            notification["id"] = str(notification["_id"])
         
         return notifications
     except Exception as e:

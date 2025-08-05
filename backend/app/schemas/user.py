@@ -1,7 +1,13 @@
 from typing import Optional, List
 from pydantic import BaseModel, EmailStr, validator
 from datetime import datetime
-from app.models.user import UserRole
+# UserRole enum definition
+from enum import Enum
+
+class UserRole(str, Enum):
+    ADMIN = "admin"
+    EMPLOYER = "employer"
+    JOBSEEKER = "jobseeker"
 
 
 class UserBase(BaseModel):

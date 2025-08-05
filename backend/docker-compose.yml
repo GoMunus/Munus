@@ -1,19 +1,18 @@
 version: '3.8'
 
 services:
-  # PostgreSQL Database
-  postgres:
-    image: postgres:15
-    container_name: skillglide_postgres
+  # MongoDB Database
+  mongodb:
+    image: mongo:7
+    container_name: skillglide_mongodb
     environment:
-      POSTGRES_DB: skillglide_db
-      POSTGRES_USER: skillglide_user
-      POSTGRES_PASSWORD: skillglide_password
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password123
+      MONGO_INITDB_DATABASE: jobify
     ports:
-      - "5432:5432"
+      - "27017:27017"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - mongodb_data:/data/db
     networks:
       - skillglide_network
 
@@ -33,13 +32,13 @@ services:
     build: .
     container_name: skillglide_backend
     environment:
-      - DATABASE_URL=postgresql://skillglide_user:skillglide_password@postgres:5432/skillglide_db
-      - ASYNC_DATABASE_URL=postgresql+asyncpg://skillglide_user:skillglide_password@postgres:5432/skillglide_db
+      - MONGODB_URI=mongodb://admin:password123@mongodb:27017/jobify?authSource=admin
+      - MONGODB_DB_NAME=jobify
       - REDIS_URL=redis://redis:6379
     ports:
       - "8000:8000"
     depends_on:
-      - postgres
+      - mongodb
       - redis
     volumes:
       - ./app:/app/app
@@ -53,10 +52,11 @@ services:
     build: .
     container_name: skillglide_celery_worker
     environment:
-      - DATABASE_URL=postgresql://skillglide_user:skillglide_password@postgres:5432/skillglide_db
+      - MONGODB_URI=mongodb://admin:password123@mongodb:27017/jobify?authSource=admin
+      - MONGODB_DB_NAME=jobify
       - REDIS_URL=redis://redis:6379
     depends_on:
-      - postgres
+      - mongodb
       - redis
     volumes:
       - ./app:/app/app
@@ -69,10 +69,11 @@ services:
     build: .
     container_name: skillglide_celery_beat
     environment:
-      - DATABASE_URL=postgresql://skillglide_user:skillglide_password@postgres:5432/skillglide_db
+      - MONGODB_URI=mongodb://admin:password123@mongodb:27017/jobify?authSource=admin
+      - MONGODB_DB_NAME=jobify
       - REDIS_URL=redis://redis:6379
     depends_on:
-      - postgres
+      - mongodb
       - redis
     volumes:
       - ./app:/app/app
@@ -81,7 +82,7 @@ services:
     command: celery -A app.tasks.celery beat --loglevel=info
 
 volumes:
-  postgres_data:
+  mongodb_data:
   redis_data:
 
 networks:
