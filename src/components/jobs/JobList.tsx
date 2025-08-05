@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Briefcase, AlertCircle, Search, Filter, X } from 'lucide-react';
+import React, { useState } from 'react';
+import { Briefcase, AlertCircle, Filter, X } from 'lucide-react';
 import { JobCard } from './JobCard';
 import { JobApplicationModal } from './JobApplicationModal';
 import { JobFilters } from './JobFilters';
@@ -8,21 +8,16 @@ import { useJobs } from '../../contexts/JobContext';
 import { LoadingSpinner } from '../common/LoadingSpinner';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
-import { Input } from '../ui/Input';
 import { Badge } from '../ui/Badge';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useToast } from '../common/Toast';
-import { jobService } from '../../services/jobService';
-import type { JobResponse } from '../../services/jobService';
 
 export const JobList: React.FC = () => {
   const [selectedJob, setSelectedJob] = useState<any>(null);
   const [isApplicationModalOpen, setIsApplicationModalOpen] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [sortBy, setSortBy] = useState('newest');
-  const [localJobs, setLocalJobs] = useState<JobResponse[]>([]);
-  const [localLoading, setLocalLoading] = useState(true);
-  const [localError, setLocalError] = useState<string | null>(null);
+
   const { isAuthenticated } = useAuth();
   const { theme } = useTheme();
   const { success, error: showError } = useToast();
@@ -34,92 +29,19 @@ export const JobList: React.FC = () => {
     clearFilters,
     loading,
     error,
-    totalJobs,
     refetchJobs
   } = useJobs();
 
   // Debug logging
-  console.log('JobList: JobContext state:', {
-    filteredJobs: filteredJobs?.length || 0,
-    localJobs: localJobs?.length || 0,
-    loading,
-    error,
-    totalJobs
-  });
+  console.log('JobList: filteredJobs count:', filteredJobs?.length || 0, 'loading:', loading, 'error:', error);
 
-  // Fallback function to fetch jobs directly if JobContext fails
-  const fetchJobsDirectly = async () => {
-    try {
-      setLocalLoading(true);
-      setLocalError(null);
-      console.log('JobList: Fetching jobs directly...');
-      const jobs = await jobService.getJobs();
-      console.log('JobList: Direct fetch result:', jobs);
-      console.log('JobList: Jobs array length:', Array.isArray(jobs) ? jobs.length : 'Not an array');
-      setLocalJobs(Array.isArray(jobs) ? jobs : []);
-    } catch (err: any) {
-      console.error('JobList: Error fetching jobs directly:', err);
-      setLocalError(err.message || 'Failed to fetch jobs');
-      setLocalJobs([]);
-    } finally {
-      setLocalLoading(false);
-    }
-  };
+  // Use jobs from JobContext
+  const jobsToDisplay = filteredJobs || [];
+  const isLoading = loading;
+  const hasError = error;
 
-  // Use local jobs if JobContext jobs are empty
-  const jobsToDisplay = filteredJobs && filteredJobs.length > 0 ? filteredJobs : localJobs;
-  const isLoading = loading || localLoading;
-  const hasError = error || localError;
-
-  // Apply filters to local jobs if using fallback
-  const getFilteredLocalJobs = () => {
-    if (filteredJobs && filteredJobs.length > 0) return filteredJobs;
-    
-    let filtered = [...localJobs];
-
-    // Apply search filter
-    if (filters.search) {
-      const searchLower = filters.search.toLowerCase();
-      filtered = filtered.filter(job =>
-        job.title.toLowerCase().includes(searchLower) ||
-        job.description.toLowerCase().includes(searchLower) ||
-        job.location.toLowerCase().includes(searchLower) ||
-        (job.required_skills && job.required_skills.some((skill: string) => skill.toLowerCase().includes(searchLower)))
-      );
-    }
-
-    // Apply location filter
-    if (filters.location) {
-      filtered = filtered.filter(job =>
-        job.location.toLowerCase().includes(filters.location!.toLowerCase())
-      );
-    }
-
-    // Apply job type filter
-    if (filters.jobType && filters.jobType.length > 0) {
-      filtered = filtered.filter(job => filters.jobType!.includes(job.job_type as any));
-    }
-
-    // Apply work mode filter
-    if (filters.workMode && filters.workMode.length > 0) {
-      filtered = filtered.filter(job => filters.workMode!.includes(job.work_mode as any));
-    }
-
-    // Apply experience filter
-    if (filters.experience && filters.experience.length > 0) {
-      filtered = filtered.filter(job => filters.experience!.includes(job.experience_level as any));
-    }
-
-    return filtered;
-  };
-
-  const finalJobs = getFilteredLocalJobs();
-
-  useEffect(() => {
-    // Fetch jobs directly as fallback
-    console.log('JobList: useEffect triggered, fetching jobs directly...');
-    fetchJobsDirectly();
-  }, []);
+  // Use the filtered jobs from JobContext directly
+  const finalJobs = jobsToDisplay;
 
   const handleApply = (jobId: string) => {
     if (!isAuthenticated) {
@@ -139,7 +61,6 @@ export const JobList: React.FC = () => {
 
   const handleApplicationSuccess = () => {
     refetchJobs();
-    fetchJobsDirectly(); // Also refresh local jobs
     success('Application Submitted', 'Your application has been submitted successfully!');
   };
 
@@ -221,7 +142,6 @@ export const JobList: React.FC = () => {
           variant="primary"
           onClick={() => {
             refetchJobs();
-            fetchJobsDirectly();
           }}
           className="mx-auto"
         >

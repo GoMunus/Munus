@@ -11,6 +11,29 @@ interface PhotoUploadProps {
   size?: 'sm' | 'md' | 'lg';
 }
 
+// Utility function to format image URL
+const formatImageUrl = (url: string): string => {
+  if (!url) return '';
+  
+  // If it's already a full URL, return as is
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+  
+  // If it's a relative path starting with /, prepend the backend URL
+  if (url.startsWith('/')) {
+    const backendUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
+    return `${backendUrl}${url}`;
+  }
+  
+  // If it's a blob URL (for preview), return as is
+  if (url.startsWith('blob:')) {
+    return url;
+  }
+  
+  return url;
+};
+
 export const PhotoUpload: React.FC<PhotoUploadProps> = ({
   currentPhoto,
   onPhotoChange,
@@ -36,6 +59,9 @@ export const PhotoUpload: React.FC<PhotoUploadProps> = ({
     md: 'w-8 h-8',
     lg: 'w-12 h-12'
   };
+
+  // Format the current photo URL for display
+  const displayPhotoUrl = formatImageUrl(currentPhoto || '');
 
   const validateFile = (file: File): boolean => {
     setUploadError('');
@@ -163,11 +189,16 @@ export const PhotoUpload: React.FC<PhotoUploadProps> = ({
         onDrop={handleDrop}
         onClick={handleBrowseClick}
       >
-        {currentPhoto ? (
+        {displayPhotoUrl ? (
           <img
-            src={currentPhoto}
+            src={displayPhotoUrl}
             alt="Profile"
             className="w-full h-full object-cover"
+            onError={(e) => {
+              console.error('Failed to load image:', displayPhotoUrl);
+              // Fallback to default avatar if image fails to load
+              e.currentTarget.style.display = 'none';
+            }}
           />
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
@@ -190,7 +221,7 @@ export const PhotoUpload: React.FC<PhotoUploadProps> = ({
         )}
 
         {/* Remove button */}
-        {currentPhoto && onPhotoRemove && !disabled && (
+        {displayPhotoUrl && onPhotoRemove && !disabled && (
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -236,7 +267,7 @@ export const PhotoUpload: React.FC<PhotoUploadProps> = ({
       )}
 
       {/* Success message */}
-      {currentPhoto && !uploadError && (
+      {displayPhotoUrl && !uploadError && (
         <div className="mt-2 flex items-center space-x-1 text-green-600 dark:text-green-400 text-sm">
           <CheckCircle className="w-4 h-4" />
           <span>Photo uploaded successfully</span>
@@ -244,7 +275,7 @@ export const PhotoUpload: React.FC<PhotoUploadProps> = ({
       )}
 
       {/* Drag and drop hint */}
-      {!currentPhoto && !disabled && (
+      {!displayPhotoUrl && !disabled && (
         <p className="mt-2 text-xs text-gray-500 dark:text-gray-400 text-center">
           Drag and drop an image here, or click to browse
         </p>

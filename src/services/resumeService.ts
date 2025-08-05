@@ -208,7 +208,7 @@ class ResumeService {
     }
   }
 
-  async generatePDF(resumeData: any): Promise<{ filename: string; pdfContent: string }> {
+  async generatePDFFromData(resumeData: any): Promise<{ filename: string; pdfContent: string }> {
     try {
       const response = await api.post<any>('/resumes/generate-pdf', resumeData);
       

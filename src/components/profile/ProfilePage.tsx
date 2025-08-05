@@ -84,10 +84,14 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
   const uploadPhoto = async (file: File): Promise<string> => {
     setIsUploadingPhoto(true);
     try {
+      console.log('ProfilePage: Starting photo upload for file:', file.name);
       const response = await userService.uploadAvatar(file);
+      console.log('ProfilePage: Photo upload successful:', response);
       return response.avatar_url;
-    } catch (error) {
-      throw new Error('Failed to upload photo. Please try again.');
+    } catch (error: any) {
+      console.error('ProfilePage: Photo upload failed:', error);
+      const errorMessage = error.message || 'Failed to upload photo. Please try again.';
+      throw new Error(errorMessage);
     } finally {
       setIsUploadingPhoto(false);
     }
@@ -102,9 +106,15 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
       let avatarUrl = profileData.avatar;
       if (selectedPhoto) {
         try {
+          console.log('ProfilePage: Uploading photo before profile update...');
           avatarUrl = await uploadPhoto(selectedPhoto);
-        } catch (error) {
-          setSaveMessage('Failed to upload photo. Please try again.');
+          console.log('ProfilePage: Photo uploaded successfully:', avatarUrl);
+          
+          // Update the profile data with the new avatar URL immediately
+          setProfileData(prev => ({ ...prev, avatar: avatarUrl }));
+        } catch (error: any) {
+          console.error('ProfilePage: Photo upload failed during profile update:', error);
+          setSaveMessage(error.message || 'Failed to upload photo. Please try again.');
           setIsSaving(false);
           return;
         }
@@ -126,7 +136,29 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
         portfolio_url: profileData.portfolio_url,
       });
       
+      // Refresh user data to get the latest information from server
       await refreshUser();
+      
+      // Update profile data with the refreshed user data
+      const refreshedUser = await userService.getCurrentUser();
+      setProfileData(prev => ({
+        ...prev,
+        name: refreshedUser.name || prev.name,
+        email: refreshedUser.email || prev.email,
+        phone: refreshedUser.phone || prev.phone,
+        location: refreshedUser.location || prev.location,
+        bio: refreshedUser.bio || prev.bio,
+        avatar: refreshedUser.avatar_url || prev.avatar,
+        experience_years: refreshedUser.experience_years || prev.experience_years,
+        expected_salary_min: refreshedUser.expected_salary_min || prev.expected_salary_min,
+        expected_salary_max: refreshedUser.expected_salary_max || prev.expected_salary_max,
+        preferred_job_type: refreshedUser.preferred_job_type || prev.preferred_job_type,
+        preferred_work_mode: refreshedUser.preferred_work_mode || prev.preferred_work_mode,
+        linkedin_url: refreshedUser.linkedin_url || prev.linkedin_url,
+        github_url: refreshedUser.github_url || prev.github_url,
+        portfolio_url: refreshedUser.portfolio_url || prev.portfolio_url,
+      }));
+      
       setIsEditing(false);
       setSaveMessage('Profile updated successfully!');
       

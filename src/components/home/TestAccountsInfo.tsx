@@ -25,7 +25,7 @@ export const TestAccountsInfo: React.FC = () => {
           <p className={`text-lg max-w-2xl mx-auto ${
             theme === 'light' ? 'text-gray-600' : 'text-gray-400'
           }`}>
-            Create your account to access all features of SkillGlide
+            Create your account to access all features of Munus
           </p>
         </div>
 
@@ -51,7 +51,7 @@ export const TestAccountsInfo: React.FC = () => {
                 <div className={`text-sm space-y-1 ${
                   theme === 'light' ? 'text-blue-700' : 'text-blue-300'
                 }`}>
-                  <p><strong>Email:</strong> john.doe@skillglide.com</p>
+                  <p><strong>Email:</strong> john.doe@munus.com</p>
                   <p><strong>Password:</strong> password123</p>
                 </div>
               </div>

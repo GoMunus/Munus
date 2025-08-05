@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { jobService, type JobResponse } from '../services/jobService';
-import { useApi } from '../hooks/useApi';
 import { useAuth } from './AuthContext';
 import type { JobFilters } from '../types';
 
@@ -34,23 +33,50 @@ interface JobProviderProps {
 export const JobProvider: React.FC<JobProviderProps> = ({ children }) => {
   const [filters, setFilters] = useState<JobFilters>({});
   const [filteredJobs, setFilteredJobs] = useState<JobResponse[]>([]);
+  const [jobs, setJobs] = useState<JobResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const { isAuthenticated } = useAuth();
 
-  const {
-    data: jobs = [],
-    loading,
-    error,
-    refetch: refetchJobs,
-  } = useApi(() => jobService.getJobs(filters), {
-    immediate: true, // Always fetch jobs, regardless of authentication status
-    onError: (error) => {
-      console.error('Failed to fetch jobs:', error);
-    },
-  });
+  // Direct API call without useApi hook
+  const fetchJobs = useCallback(async () => {
+    try {
+      console.log('JobContext: Starting direct fetch...');
+      setLoading(true);
+      setError(null);
+      
+      const result = await jobService.getJobs();
+      console.log('JobContext: Direct fetch result:', result);
+      console.log('JobContext: Jobs count:', Array.isArray(result) ? result.length : 'Not an array');
+      
+      if (Array.isArray(result)) {
+        setJobs(result);
+        console.log('JobContext: Successfully set jobs:', result.length);
+      } else {
+        console.error('JobContext: Result is not an array:', result);
+        setJobs([]);
+        setError('Invalid response format');
+      }
+    } catch (err: any) {
+      console.error('JobContext: Error fetching jobs:', err);
+      setError(err.message || 'Failed to fetch jobs');
+      setJobs([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Fetch jobs on mount
+  useEffect(() => {
+    fetchJobs();
+  }, [fetchJobs]);
 
   // Apply filters whenever jobs or filters change
   useEffect(() => {
+    console.log('JobContext: Applying filters. Jobs:', jobs?.length || 0, 'Filters:', filters);
+    
     if (!jobs || !Array.isArray(jobs)) {
+      console.log('JobContext: No jobs or not array, setting empty filtered jobs');
       setFilteredJobs([]);
       return;
     }
@@ -140,9 +166,10 @@ export const JobProvider: React.FC<JobProviderProps> = ({ children }) => {
         );
       }
 
+      console.log('JobContext: Filtered jobs result:', filtered.length);
       setFilteredJobs(filtered);
     } catch (error) {
-      console.error('Error applying filters:', error);
+      console.error('JobContext: Error applying filters:', error);
       setFilteredJobs(jobs || []);
     }
   }, [jobs, filters]);
@@ -160,15 +187,25 @@ export const JobProvider: React.FC<JobProviderProps> = ({ children }) => {
   }, [updateFilters]);
 
   const refetchJobsAsync = useCallback(async () => {
-    await refetchJobs();
-  }, [refetchJobs]);
+    console.log('JobContext: Manually refetching jobs...');
+    await fetchJobs();
+  }, [fetchJobs]);
 
   // Refetch jobs when authentication state changes
   useEffect(() => {
     if (isAuthenticated) {
-      refetchJobs();
+      fetchJobs();
     }
-  }, [isAuthenticated]); // Removed refetchJobs from dependencies
+  }, [isAuthenticated, fetchJobs]);
+
+  // Debug the values being provided
+  console.log('JobContext Provider values:', {
+    jobs: Array.isArray(jobs) ? jobs.length : 'not array',
+    filteredJobs: filteredJobs.length,
+    loading,
+    error,
+    totalJobs: Array.isArray(jobs) ? jobs.length : 0
+  });
 
   return (
     <JobContext.Provider

@@ -5,7 +5,7 @@ import { ProfileCreation } from './components/profile/ProfileCreation';
 import { ProfilePage } from './components/profile/ProfilePage';
 import { JobFilters } from './components/jobs/JobFilters';
 import { JobList } from './components/jobs/JobList';
-import { JobTest } from './components/jobs/JobTest';
+
 import { JobSeekerDashboard } from './components/jobs/JobSeekerDashboard';
 import { ResumeBuilder } from './components/resume/ResumeBuilder';
 import { EmployerDashboard } from './components/employer/EmployerDashboard';
@@ -123,7 +123,7 @@ const AppContent: React.FC = () => {
           : 'bg-gradient-to-br from-gray-900 via-gray-900 to-blue-900 dark-neon bg-dark-pattern'
       }`}>
         <div className="flex items-center justify-center min-h-screen">
-          <LoadingSpinner size="lg" text="Loading SkillGlide..." />
+          <LoadingSpinner size="lg" text="Loading Munus..." />
         </div>
       </div>
     );
@@ -158,7 +158,6 @@ const AppContent: React.FC = () => {
                     }
                   </p>
                 </div>
-                <JobTest />
                 <JobFilters />
                 <JobList />
               </div>

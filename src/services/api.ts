@@ -156,12 +156,24 @@ export const api = {
   },
   
   upload: <T = any>(url: string, formData: FormData): Promise<any> => {
+    console.log(`API: Making UPLOAD request to ${url}`);
+    console.log('API: FormData contents:');
+    for (let [key, value] of formData.entries()) {
+      if (value instanceof File) {
+        console.log(`API: - ${key}: File(${value.name}, ${value.size} bytes, ${value.type})`);
+      } else {
+        console.log(`API: - ${key}: ${value}`);
+      }
+    }
+    
     return apiClient.post(url, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
     }).catch((error) => {
       console.error(`UPLOAD to ${url} failed:`, error);
+      console.error('API: Upload error response:', error.response);
+      console.error('API: Upload error data:', error.response?.data);
       throw error;
     });
   },

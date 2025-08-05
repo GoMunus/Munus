@@ -33,18 +33,41 @@ export interface JobResponse {
 class JobService {
   async getJobs(filters?: Partial<JobFilters>): Promise<JobResponse[]> {
     try {
+      // Log the API base URL being used
+      console.log('JobService: API Base URL:', import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000');
+      console.log('JobService: Making request to /mongodb-jobs/');
+      
       // Try the MongoDB jobs endpoint first (where our sample jobs are)
-      const response = await api.get<JobResponse[]>('/mongodb-jobs/', filters);
+      const response = await api.get<any>('/mongodb-jobs/', filters);
       console.log('JobService: Fetched jobs from MongoDB endpoint:', response.data);
-      return Array.isArray(response.data) ? response.data : [];
+      
+      // Handle paginated response structure
+      if (response.data && response.data.jobs && Array.isArray(response.data.jobs)) {
+        console.log('JobService: Found jobs in paginated response:', response.data.jobs.length);
+        return response.data.jobs;
+      } else if (Array.isArray(response.data)) {
+        console.log('JobService: Found jobs in direct array response:', response.data.length);
+        return response.data;
+      } else {
+        console.log('JobService: No jobs found in response');
+        return [];
+      }
     } catch (error: any) {
       console.error('JobService: Error fetching jobs from MongoDB endpoint:', error);
       
       // Fallback to regular jobs endpoint
       try {
-        const fallbackResponse = await api.get<JobResponse[]>('/jobs/', filters);
+        const fallbackResponse = await api.get<any>('/jobs/', filters);
         console.log('JobService: Fetched jobs from fallback endpoint:', fallbackResponse.data);
-        return Array.isArray(fallbackResponse.data) ? fallbackResponse.data : [];
+        
+        // Handle paginated response structure for fallback too
+        if (fallbackResponse.data && fallbackResponse.data.jobs && Array.isArray(fallbackResponse.data.jobs)) {
+          return fallbackResponse.data.jobs;
+        } else if (Array.isArray(fallbackResponse.data)) {
+          return fallbackResponse.data;
+        } else {
+          return [];
+        }
       } catch (fallbackError: any) {
         console.error('JobService: Error fetching jobs from fallback endpoint:', fallbackError);
         return []; // Return empty array instead of throwing

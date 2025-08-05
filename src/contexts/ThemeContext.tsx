@@ -24,8 +24,13 @@ interface ThemeProviderProps {
 
 export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   const [theme, setTheme] = useState<Theme>(() => {
-    const saved = localStorage.getItem('skillglide-theme');
-    return (saved as Theme) || 'light';
+    const saved = localStorage.getItem('munus-theme');
+    // Only use saved theme if user has explicitly set it (not on first visit)
+    if (saved && saved !== 'light') {
+      return saved as Theme;
+    }
+    // Default to light theme for new users
+    return 'light';
   });
 
   const isDark = theme === 'dark-neon';
@@ -36,7 +41,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   };
 
   useEffect(() => {
-    localStorage.setItem('skillglide-theme', theme);
+    localStorage.setItem('munus-theme', theme);
     document.documentElement.className = theme;
     
     // Apply theme-specific body classes

@@ -170,7 +170,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         <div className="mb-6">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-            {mode === 'login' ? 'Welcome Back to SkillGlide' : 'Join SkillGlide'}
+            {mode === 'login' ? 'Welcome Back to Munus' : 'Join Munus'}
           </h2>
           <p className="text-gray-600 dark:text-gray-400">
             {mode === 'login' 
@@ -293,13 +293,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             fullWidth
             className="shadow-lg"
           >
-            {mode === 'login' ? 'Sign In to SkillGlide' : 'Create SkillGlide Account'}
+            {mode === 'login' ? 'Sign In to Munus' : 'Create Munus Account'}
           </Button>
         </form>
 
         <div className="mt-6 text-center">
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            {mode === 'login' ? "Don't have a SkillGlide account?" : 'Already have a SkillGlide account?'}
+            {mode === 'login' ? "Don't have a Munus account?" : 'Already have a Munus account?'}
             <button
               onClick={mode === 'login' ? handleSignUpClick : switchMode}
               className="ml-1 text-blue-600 dark:text-blue-400 hover:underline font-medium transition-colors"

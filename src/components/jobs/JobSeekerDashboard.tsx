@@ -372,9 +372,6 @@ export const JobSeekerDashboard: React.FC<JobSeekerDashboardProps> = ({ onNaviga
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-2">
               Welcome back, {userProfile?.name || user?.name || 'Job Seeker'}! 👋
             </h1>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              Current view: Dashboard | Buttons should work now!
-            </p>
             <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400">
               Track your applications and discover new opportunities
             </p>

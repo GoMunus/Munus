@@ -13,8 +13,8 @@ export const FAQPage: React.FC = () => {
       answer: 'Our AI analyzes your profile and preferences to recommend the best job opportunities for you.'
     },
     {
-      question: 'Is SkillGlide free to use?',
-      answer: 'Yes, SkillGlide is free for job seekers. Employers may have premium options.'
+          question: 'Is Munus free to use?',
+    answer: 'Yes, Munus is free for job seekers. Employers may have premium options.'
     },
     {
       question: 'How do I contact support?',
@@ -42,7 +42,7 @@ export const FAQPage: React.FC = () => {
           <p className={`text-lg ${
             theme === 'light' ? 'text-gray-600' : 'text-gray-400'
           }`}>
-            Find answers to common questions about SkillGlide
+            Find answers to common questions about Munus
           </p>
         </div>
         

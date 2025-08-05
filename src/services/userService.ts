@@ -51,13 +51,37 @@ class UserService {
 
   async uploadAvatar(file: File): Promise<{ avatar_url: string }> {
     try {
+      console.log('UserService: Starting avatar upload for file:', file.name, 'Size:', file.size);
+      
       const formData = new FormData();
       formData.append('file', file);
       
+      console.log('UserService: Making upload request to /upload/avatar');
       const response = await api.upload<{ avatar_url: string }>('/upload/avatar', formData);
+      
+      console.log('UserService: Avatar upload successful:', response.data);
       return response.data;
     } catch (error: any) {
-      const errorMessage = error.response?.data?.detail || 'Failed to upload avatar';
+      console.error('UserService: Avatar upload failed:', error);
+      console.error('UserService: Error response:', error.response);
+      console.error('UserService: Error data:', error.response?.data);
+      
+      let errorMessage = 'Failed to upload avatar';
+      
+      if (error.response?.data?.detail) {
+        errorMessage = error.response.data.detail;
+      } else if (error.response?.status === 401) {
+        errorMessage = 'Authentication failed. Please log in again.';
+      } else if (error.response?.status === 413) {
+        errorMessage = 'File too large. Please choose a smaller image.';
+      } else if (error.response?.status === 400) {
+        errorMessage = error.response.data?.detail || 'Invalid file format. Please use JPEG, PNG, GIF, or WebP.';
+      } else if (error.code === 'ECONNREFUSED' || error.code === 'ERR_NETWORK') {
+        errorMessage = 'Cannot connect to server. Please check your connection.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       throw new Error(errorMessage);
     }
   }

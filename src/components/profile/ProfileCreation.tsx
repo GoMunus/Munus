@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ArrowRight, ArrowLeft, User, Mail, Phone, MapPin, Briefcase, GraduationCap, Upload, Camera, CheckCircle, Star, Zap, Building, Users, Globe, Award, XCircle } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
+import { PasswordInput } from '../ui/PasswordInput';
 import { Card } from '../ui/Card';
 import { Badge } from '../ui/Badge';
 import { PhotoUpload } from '../ui/PhotoUpload';
@@ -19,7 +20,7 @@ interface ProfileCreationProps {
 
 interface ProfileData {
   // Role Selection
-  userType: 'jobseeker' | 'employer';
+  userType: 'jobseeker' | 'employer' | '';
   
   // Personal Information (Common)
   firstName: string;
@@ -33,6 +34,9 @@ interface ProfileData {
   currentRole?: string;
   experience?: string;
   industry?: string;
+  educationLevel?: string;
+  fieldOfStudy?: string;
+  careerGoal?: string;
   skills?: string[];
   jobType?: string[];
   workMode?: string[];
@@ -75,7 +79,7 @@ const employerSteps = [
 export const ProfileCreation: React.FC<ProfileCreationProps> = ({ onComplete, onBack }) => {
   const [currentStep, setCurrentStep] = useState(0);
   const [profileData, setProfileData] = useState<ProfileData>({
-    userType: 'jobseeker',
+    userType: '' as 'jobseeker' | 'employer',
     firstName: '',
     lastName: '',
     email: '',
@@ -90,7 +94,7 @@ export const ProfileCreation: React.FC<ProfileCreationProps> = ({ onComplete, on
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { register } = useAuth();
   const { theme } = useTheme();
-  const [country, setCountry] = useState('IN');
+  const [country, setCountry] = useState('');
   const [state, setState] = useState('');
   const [city, setCity] = useState('');
   const [states, setStates] = useState<ReturnType<typeof State.getStatesOfCountry>>([]);
@@ -104,7 +108,9 @@ export const ProfileCreation: React.FC<ProfileCreationProps> = ({ onComplete, on
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [otpLoading, setOtpLoading] = useState(false);
 
-  const steps = profileData.userType === 'jobseeker' ? jobSeekerSteps : employerSteps;
+  const steps = profileData.userType === 'jobseeker' ? jobSeekerSteps : 
+                profileData.userType === 'employer' ? employerSteps : 
+                jobSeekerSteps; // Default to jobseeker steps when no selection made yet
 
   // Initialize component state when mounted (but don't reset if already has data)
   useEffect(() => {
@@ -112,7 +118,7 @@ export const ProfileCreation: React.FC<ProfileCreationProps> = ({ onComplete, on
     if (!profileData.firstName && !profileData.email) {
       setCurrentStep(0);
       setProfileData({
-        userType: 'jobseeker',
+        userType: '' as 'jobseeker' | 'employer',
         firstName: '',
         lastName: '',
         email: '',
@@ -160,13 +166,17 @@ export const ProfileCreation: React.FC<ProfileCreationProps> = ({ onComplete, on
   const uploadPhoto = async (file: File): Promise<string> => {
     setIsUploadingPhoto(true);
     try {
+      console.log('ProfileCreation: Starting photo upload for file:', file.name);
       const formData = new FormData();
       formData.append('file', file);
       
       const response = await api.upload('/upload/avatar', formData);
+      console.log('ProfileCreation: Photo upload successful:', response.data);
       return response.data.avatar_url;
-    } catch (error) {
-      throw new Error('Failed to upload photo. Please try again.');
+    } catch (error: any) {
+      console.error('ProfileCreation: Photo upload failed:', error);
+      const errorMessage = error.message || 'Failed to upload photo. Please try again.';
+      throw new Error(errorMessage);
     } finally {
       setIsUploadingPhoto(false);
     }
@@ -187,7 +197,9 @@ export const ProfileCreation: React.FC<ProfileCreationProps> = ({ onComplete, on
           if (!profileData.lastName.trim()) newErrors.lastName = 'Last name is required';
           if (!profileData.email.trim()) newErrors.email = 'Email is required';
           else if (!/\S+@\S+\.\S+/.test(profileData.email)) newErrors.email = 'Please enter a valid email';
-          if (!profileData.location.trim()) newErrors.location = 'Location is required';
+          if (!country) newErrors.country = 'Country is required';
+          if (!state) newErrors.state = 'State is required';
+          if (!city) newErrors.city = 'City is required';
           if (!profileData.password.trim()) newErrors.password = 'Password is required';
           else if (profileData.password.length < 6) newErrors.password = 'Password must be at least 6 characters';
           break;
@@ -286,9 +298,15 @@ export const ProfileCreation: React.FC<ProfileCreationProps> = ({ onComplete, on
       let avatarUrl = '';
       if (selectedPhoto) {
         try {
+          console.log('ProfileCreation: Uploading photo before registration...');
           avatarUrl = await uploadPhoto(selectedPhoto);
-        } catch (error) {
-          setErrors({ general: 'Failed to upload photo. Please try again.' });
+          console.log('ProfileCreation: Photo uploaded successfully:', avatarUrl);
+          
+          // Update the profile data with the new avatar URL
+          setProfileData(prev => ({ ...prev, profilePicture: avatarUrl }));
+        } catch (error: any) {
+          console.error('ProfileCreation: Photo upload failed during registration:', error);
+          setErrors({ general: error.message || 'Failed to upload photo. Please try again.' });
           setIsSubmitting(false);
           return;
         }
@@ -393,19 +411,27 @@ export const ProfileCreation: React.FC<ProfileCreationProps> = ({ onComplete, on
       setState('');
       setCity('');
       setCities([]);
+      // Clear country error when country is selected
+      if (errors.country) {
+        setErrors(prev => ({ ...prev, country: '' }));
+      }
     }
-  }, [country]);
+  }, [country, errors.country]);
 
   useEffect(() => {
     if (state) {
       const cityList = City.getCitiesOfState(country, state);
       setCities(cityList);
       setCity('');
+      // Clear state error when state is selected
+      if (errors.state) {
+        setErrors(prev => ({ ...prev, state: '' }));
+      }
     } else {
       setCities([]);
       setCity('');
     }
-  }, [state, country]);
+  }, [state, country, errors.state]);
 
   // Update location in profileData when state or city changes for both jobseeker and employer
   useEffect(() => {
@@ -416,8 +442,12 @@ export const ProfileCreation: React.FC<ProfileCreationProps> = ({ onComplete, on
         updateProfileData('location', '');
       }
     }
+    // Clear city error when city is selected
+    if (city && errors.city) {
+      setErrors(prev => ({ ...prev, city: '' }));
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state, city, profileData.userType]);
+  }, [state, city, profileData.userType, errors.city]);
 
   // Cleanup photo preview on unmount
   useEffect(() => {
@@ -434,7 +464,7 @@ export const ProfileCreation: React.FC<ProfileCreationProps> = ({ onComplete, on
         <h3 className={`text-2xl font-bold mb-4 ${
           theme === 'light' ? 'text-gray-900' : 'text-white'
         }`}>
-          Welcome to SkillGlide!
+          Welcome to Munus!
         </h3>
         <p className={`text-lg ${
           theme === 'light' ? 'text-gray-600' : 'text-gray-400'
@@ -524,8 +554,9 @@ export const ProfileCreation: React.FC<ProfileCreationProps> = ({ onComplete, on
   );
 
   const renderPersonalInfo = () => (
-    <div className="space-y-6">
-      <div className="text-center mb-8">
+    <div className="space-y-8">
+      {/* Profile Picture Section */}
+      <div className="text-center">
         <PhotoUpload
           currentPhoto={photoPreview}
           onPhotoChange={handlePhotoChange}
@@ -546,7 +577,22 @@ export const ProfileCreation: React.FC<ProfileCreationProps> = ({ onComplete, on
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Personal Information Section */}
+      <div className="space-y-6">
+        <div className="border-b border-gray-200 dark:border-gray-700 pb-2">
+          <h3 className={`text-lg font-semibold ${
+            theme === 'light' ? 'text-gray-900' : 'text-white'
+          }`}>
+            Personal Information
+          </h3>
+          <p className={`text-sm ${
+            theme === 'light' ? 'text-gray-600' : 'text-gray-400'
+          }`}>
+            Please provide your basic personal details
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Input
           label="First Name"
           placeholder="John"
@@ -569,154 +615,238 @@ export const ProfileCreation: React.FC<ProfileCreationProps> = ({ onComplete, on
           required
         />
         
-        <Input
-          label="Email Address"
-          type="email"
-          placeholder="john.doe@example.com"
-          value={profileData.email}
-          onChange={(e) => updateProfileData('email', e.target.value)}
-          error={errors.email}
-          icon={<Mail className="w-4 h-4" />}
-          fullWidth
-          required
-        />
-        
-        <div className="col-span-2">
-          <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
-            Phone Number
-          </label>
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-2">
-              <span
-                className={`inline-flex items-center px-3 py-2 border border-r-0 rounded-l-md select-none
-                  ${theme === 'light' ? 'bg-gray-100 border-gray-300 text-gray-700' : 'bg-gray-800 border-gray-600 text-gray-200'}`}
-              >
-                +91
-              </span>
-              <input
-                type="tel"
-                maxLength={10}
-                pattern="[0-9]{10}"
-                value={profileData.phone}
-                onChange={e => {
-                  // Only allow digits, max 10
-                  const val = e.target.value.replace(/\D/g, '').slice(0, 10);
-                  handlePhoneChange(val);
-                }}
-                className={`w-full px-4 py-2 border rounded-r-md focus:ring-2 focus:border-blue-500 ${theme === 'light' ? 'bg-white border-gray-300 text-gray-900' : 'dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100'}`}
-                placeholder="Enter 10 digit mobile number"
-                disabled={otpVerified}
-              />
-              {otpVerified && <CheckCircle className="w-6 h-6 text-green-500 ml-2" />}
-            </div>
-            {/* Show Verify button if 10 digit phone and not verified and not otpSent */}
-            {!otpVerified && profileData.phone.length === 10 && !otpSent && (
-              <button
-                type="button"
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 w-fit"
-                onClick={handleSendOtp}
-                disabled={otpLoading || profileData.phone.length !== 10}
-              >
-                {otpLoading ? 'Sending...' : 'Verify'}
-              </button>
-            )}
-            {/* OTP input and verify button, shown only after clicking Verify */}
-            {otpSent && !otpVerified && (
-              <div className="flex items-center gap-2 mt-1">
+        </div>
+      </div>
+
+      {/* Contact Information Section */}
+      <div className="space-y-6">
+        <div className="border-b border-gray-200 dark:border-gray-700 pb-2">
+          <h3 className={`text-lg font-semibold ${
+            theme === 'light' ? 'text-gray-900' : 'text-white'
+          }`}>
+            Contact Information
+          </h3>
+          <p className={`text-sm ${
+            theme === 'light' ? 'text-gray-600' : 'text-gray-400'
+          }`}>
+            How can we reach you?
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Input
+            label="Email Address"
+            type="email"
+            placeholder="john.doe@example.com"
+            value={profileData.email}
+            onChange={(e) => updateProfileData('email', e.target.value)}
+            error={errors.email}
+            icon={<Mail className="w-4 h-4" />}
+            fullWidth
+            required
+          />
+          
+          <div>
+            <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+              Phone Number
+            </label>
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <span
+                  className={`inline-flex items-center px-3 py-2 border border-r-0 rounded-l-md select-none
+                    ${theme === 'light' ? 'bg-gray-100 border-gray-300 text-gray-700' : 'bg-gray-800 border-gray-600 text-gray-200'}`}
+                >
+                  +91
+                </span>
                 <input
-                  type="text"
-                  maxLength={6}
-                  value={otp}
-                  onChange={e => setOtp(e.target.value.replace(/\D/g, ''))}
-                  className="w-24 px-2 py-1 border rounded focus:ring-2 focus:border-blue-500 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
-                  placeholder="Enter OTP"
-                  disabled={otpLoading}
+                  type="tel"
+                  maxLength={10}
+                  pattern="[0-9]{10}"
+                  value={profileData.phone}
+                  onChange={e => {
+                    // Only allow digits, max 10
+                    const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                    handlePhoneChange(val);
+                  }}
+                  className={`w-full px-4 py-2 border rounded-r-md focus:ring-2 focus:border-blue-500 ${theme === 'light' ? 'bg-white border-gray-300 text-gray-900' : 'dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100'}`}
+                  placeholder="Enter 10 digit mobile number"
+                  disabled={otpVerified}
                 />
+                {otpVerified && <CheckCircle className="w-6 h-6 text-green-500 ml-2" />}
+              </div>
+              {/* Show Verify button if 10 digit phone and not verified and not otpSent */}
+              {!otpVerified && profileData.phone.length === 10 && !otpSent && (
                 <button
                   type="button"
-                  className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
-                  onClick={handleVerifyOtp}
-                  disabled={otpLoading}
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 w-fit"
+                  onClick={handleSendOtp}
+                  disabled={otpLoading || profileData.phone.length !== 10}
                 >
-                  {otpLoading ? 'Verifying...' : 'Verify OTP'}
+                  {otpLoading ? 'Sending...' : 'Verify'}
                 </button>
-                {otpError && <span className="text-red-500 text-sm ml-2 flex items-center"><XCircle className="w-4 h-4 mr-1" />{otpError}</span>}
-              </div>
-            )}
-            {errors.phone && (
+              )}
+              {/* OTP input and verify button, shown only after clicking Verify */}
+              {otpSent && !otpVerified && (
+                <div className="flex items-center gap-2 mt-1">
+                  <input
+                    type="text"
+                    maxLength={6}
+                    value={otp}
+                    onChange={e => setOtp(e.target.value.replace(/\D/g, ''))}
+                    className="w-24 px-2 py-1 border rounded focus:ring-2 focus:border-blue-500 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
+                    placeholder="Enter OTP"
+                    disabled={otpLoading}
+                  />
+                  <button
+                    type="button"
+                    className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+                    onClick={handleVerifyOtp}
+                    disabled={otpLoading}
+                  >
+                    {otpLoading ? 'Verifying...' : 'Verify OTP'}
+                  </button>
+                  {otpError && <span className="text-red-500 text-sm ml-2 flex items-center"><XCircle className="w-4 h-4 mr-1" />{otpError}</span>}
+                </div>
+              )}
+              {errors.phone && (
+                <p className="mt-1 text-sm text-red-600 dark:text-red-400 flex items-center">
+                  <span className="mr-1">⚠</span>
+                  {errors.phone}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Location Information Section */}
+      <div className="space-y-6">
+        <div className="border-b border-gray-200 dark:border-gray-700 pb-2">
+          <h3 className={`text-lg font-semibold ${
+            theme === 'light' ? 'text-gray-900' : 'text-white'
+          }`}>
+            Location Information
+          </h3>
+          <p className={`text-sm ${
+            theme === 'light' ? 'text-gray-600' : 'text-gray-400'
+          }`}>
+            Where are you located?
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+              Country <span className="text-red-500">*</span>
+            </label>
+            <select
+              className={`w-full px-4 py-2.5 rounded-lg border focus:ring-2 focus:border-transparent ${
+                errors.country ? 'border-red-500' : ''
+              }`}
+              value={country}
+              onChange={e => setCountry(e.target.value)}
+            >
+              <option value="">Select Country</option>
+              {Country.getAllCountries().map(c => (
+                <option key={c.isoCode} value={c.isoCode}>
+                  {c.flag} {c.name}
+                </option>
+              ))}
+            </select>
+            {errors.country && (
               <p className="mt-1 text-sm text-red-600 dark:text-red-400 flex items-center">
                 <span className="mr-1">⚠</span>
-                {errors.phone}
+                {errors.country}
               </p>
             )}
           </div>
-        </div>
-        
-        <div>
-          <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
-            Country <span className="text-red-500">*</span>
-          </label>
-          <select
-            className="w-full px-4 py-2.5 rounded-lg border focus:ring-2 focus:border-transparent"
-            value={country}
-            onChange={e => setCountry(e.target.value)}
-            disabled
-          >
-            <option value="IN">🇮🇳 India</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
-            State <span className="text-red-500">*</span>
-          </label>
-          <select
-            className="w-full px-4 py-2.5 rounded-lg border focus:ring-2 focus:border-transparent"
-            value={state}
-            onChange={e => setState(e.target.value)}
-          >
-            <option value="">Select State</option>
-            {states.map(s => (
-              <option key={s.isoCode} value={s.isoCode}>{s.name}</option>
-            ))}
-          </select>
-        </div>
-        {state && (
           <div>
             <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
-              City <span className="text-red-500">*</span>
+              State <span className="text-red-500">*</span>
             </label>
             <select
-              className="w-full px-4 py-2.5 rounded-lg border focus:ring-2 focus:border-transparent"
-              value={city}
-              onChange={e => setCity(e.target.value)}
+              className={`w-full px-4 py-2.5 rounded-lg border focus:ring-2 focus:border-transparent ${
+                errors.state ? 'border-red-500' : ''
+              }`}
+              value={state}
+              onChange={e => setState(e.target.value)}
             >
-              <option value="">Select City</option>
-              {cities.map(c => (
-                <option key={c.name} value={c.name}>{c.name}</option>
+              <option value="">Select State</option>
+              {states.map(s => (
+                <option key={s.isoCode} value={s.isoCode}>{s.name}</option>
               ))}
             </select>
+            {errors.state && (
+              <p className="mt-1 text-sm text-red-600 dark:text-red-400 flex items-center">
+                <span className="mr-1">⚠</span>
+                {errors.state}
+              </p>
+            )}
           </div>
-        )}
-        <Input
-          label="Password"
-          type="password"
-          placeholder="••••••••"
-          value={profileData.password}
-          onChange={(e) => updateProfileData('password', e.target.value)}
-          error={errors.password}
-          fullWidth
-          required
-        />
+          {state && (
+            <div>
+              <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                City <span className="text-red-500">*</span>
+              </label>
+              <select
+                className={`w-full px-4 py-2.5 rounded-lg border focus:ring-2 focus:border-transparent ${
+                  errors.city ? 'border-red-500' : ''
+                }`}
+                value={city}
+                onChange={e => setCity(e.target.value)}
+              >
+                <option value="">Select City</option>
+                {cities.map(c => (
+                  <option key={c.name} value={c.name}>{c.name}</option>
+                ))}
+              </select>
+              {errors.city && (
+                <p className="mt-1 text-sm text-red-600 dark:text-red-400 flex items-center">
+                  <span className="mr-1">⚠</span>
+                  {errors.city}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
 
-        {profileData.userType === 'jobseeker' && (
-          <Input
-            label="Date of Birth"
-            type="date"
-            value={profileData.dateOfBirth || ''}
-            onChange={(e) => updateProfileData('dateOfBirth', e.target.value)}
+      {/* Account Security Section */}
+      <div className="space-y-6">
+        <div className="border-b border-gray-200 dark:border-gray-700 pb-2">
+          <h3 className={`text-lg font-semibold ${
+            theme === 'light' ? 'text-gray-900' : 'text-white'
+          }`}>
+            Account Security
+          </h3>
+          <p className={`text-sm ${
+            theme === 'light' ? 'text-gray-600' : 'text-gray-400'
+          }`}>
+            Set up your account password
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <PasswordInput
+            label="Password"
+            placeholder="Enter a strong password"
+            value={profileData.password}
+            onChange={(e) => updateProfileData('password', e.target.value)}
+            error={errors.password}
             fullWidth
+            required
           />
-        )}
+
+          {profileData.userType === 'jobseeker' && (
+            <Input
+              label="Date of Birth"
+              type="date"
+              value={profileData.dateOfBirth || ''}
+              onChange={(e) => updateProfileData('dateOfBirth', e.target.value)}
+              fullWidth
+            />
+          )}
+        </div>
       </div>
     </div>
   );
@@ -729,53 +859,216 @@ export const ProfileCreation: React.FC<ProfileCreationProps> = ({ onComplete, on
       'Communication', 'Problem Solving', 'Project Management', 'Team Collaboration'
     ];
 
+    const educationLevels = [
+      'High School',
+      'Associate Degree',
+      'Bachelor\'s Degree',
+      'Master\'s Degree',
+      'PhD',
+      'Diploma',
+      'Certification',
+      'Self-taught',
+      'Bootcamp Graduate',
+      'Other'
+    ];
+
+    const industries = [
+      'Technology',
+      'Healthcare',
+      'Finance',
+      'Education',
+      'Marketing',
+      'Sales',
+      'Design',
+      'Engineering',
+      'Consulting',
+      'Non-profit',
+      'Government',
+      'Retail',
+      'Manufacturing',
+      'Media & Entertainment',
+      'Real Estate',
+      'Other'
+    ];
+
     return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Input
-            label="Current Role"
-            placeholder="Software Engineer"
-            value={profileData.currentRole || ''}
-            onChange={(e) => updateProfileData('currentRole', e.target.value)}
-            error={errors.currentRole}
-            icon={<Briefcase className="w-4 h-4" />}
-            fullWidth
-            // required prop removed to make it optional
-          />
-          
-          <div>
-            <label className={`block text-sm font-medium mb-2 ${
-              theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+      <div className="space-y-12">
+        {/* Current Position & Experience */}
+        <div className="space-y-6">
+          <div className="border-b border-gray-200 dark:border-gray-700 pb-3 mb-6">
+            <h3 className={`text-lg font-semibold ${
+              theme === 'light' ? 'text-gray-900' : 'text-white'
             }`}>
-              Experience Level <span className="text-red-500">*</span>
-            </label>
-            <select
-              className={`w-full px-4 py-2.5 rounded-lg border focus:ring-2 focus:border-transparent ${
-                theme === 'light'
-                  ? 'border-gray-300 bg-white text-gray-900 focus:ring-blue-500'
-                  : 'border-gray-600 bg-gray-800 text-white focus:ring-cyan-500'
-              } ${errors.experience ? 'border-red-500' : ''}`}
-              value={profileData.experience || ''}
-              onChange={(e) => updateProfileData('experience', e.target.value)}
-            >
-              <option value="">Select experience level</option>
-              <option value="fresher">Fresher (0-1 years)</option>
-              <option value="1-2">1-2 years</option>
-              <option value="3-5">3-5 years</option>
-              <option value="5+">5+ years</option>
-            </select>
-            {errors.experience && <p className="mt-1 text-sm text-red-600">{errors.experience}</p>}
+              Current Position & Experience
+            </h3>
+            <p className={`text-sm ${
+              theme === 'light' ? 'text-gray-600' : 'text-gray-400'
+            }`}>
+              Tell us about your current role and experience level
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Input
+              label="Current Role (Optional)"
+              placeholder="Software Engineer, Student, etc."
+              value={profileData.currentRole || ''}
+              onChange={(e) => updateProfileData('currentRole', e.target.value)}
+              error={errors.currentRole}
+              icon={<Briefcase className="w-4 h-4" />}
+              fullWidth
+            />
+            
+            <div>
+              <label className={`block text-sm font-medium mb-2 ${
+                theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+              }`}>
+                Experience Level <span className="text-red-500">*</span>
+              </label>
+              <select
+                className={`w-full px-4 py-2.5 rounded-lg border focus:ring-2 focus:border-transparent ${
+                  theme === 'light'
+                    ? 'border-gray-300 bg-white text-gray-900 focus:ring-blue-500'
+                    : 'border-gray-600 bg-gray-800 text-white focus:ring-cyan-500'
+                } ${errors.experience ? 'border-red-500' : ''}`}
+                value={profileData.experience || ''}
+                onChange={(e) => updateProfileData('experience', e.target.value)}
+              >
+                <option value="">Select experience level</option>
+                <option value="student">Student/Intern</option>
+                <option value="fresher">Fresher (0-1 years)</option>
+                <option value="1-2">1-2 years</option>
+                <option value="3-5">3-5 years</option>
+                <option value="5+">5+ years</option>
+              </select>
+              {errors.experience && <p className="mt-1 text-sm text-red-600">{errors.experience}</p>}
+            </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Input
-            label="Portfolio Website (Optional)"
-            placeholder="https://johndoe.dev"
-            value={profileData.portfolio || ''}
-            onChange={(e) => updateProfileData('portfolio', e.target.value)}
-            fullWidth
-          />
+        {/* Education & Background */}
+        <div className="space-y-6">
+          <div className="border-b border-gray-200 dark:border-gray-700 pb-3 mb-6">
+            <h3 className={`text-lg font-semibold ${
+              theme === 'light' ? 'text-gray-900' : 'text-white'
+            }`}>
+              Education & Background
+            </h3>
+            <p className={`text-sm ${
+              theme === 'light' ? 'text-gray-600' : 'text-gray-400'
+            }`}>
+              Help us understand your educational background
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className={`block text-sm font-medium mb-2 ${
+                theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+              }`}>
+                Highest Education Level
+              </label>
+              <select
+                className={`w-full px-4 py-2.5 rounded-lg border focus:ring-2 focus:border-transparent ${
+                  theme === 'light'
+                    ? 'border-gray-300 bg-white text-gray-900 focus:ring-blue-500'
+                    : 'border-gray-600 bg-gray-800 text-white focus:ring-cyan-500'
+                }`}
+                value={profileData.educationLevel || ''}
+                onChange={(e) => updateProfileData('educationLevel', e.target.value)}
+              >
+                <option value="">Select education level</option>
+                {educationLevels.map(level => (
+                  <option key={level} value={level}>{level}</option>
+                ))}
+              </select>
+            </div>
+
+            <Input
+              label="Field of Study (Optional)"
+              placeholder="Computer Science, Business, etc."
+              value={profileData.fieldOfStudy || ''}
+              onChange={(e) => updateProfileData('fieldOfStudy', e.target.value)}
+              icon={<GraduationCap className="w-4 h-4" />}
+              fullWidth
+            />
+          </div>
+        </div>
+
+        {/* Industry & Career Goals */}
+        <div className="space-y-6">
+          <div className="border-b border-gray-200 dark:border-gray-700 pb-3 mb-6">
+            <h3 className={`text-lg font-semibold ${
+              theme === 'light' ? 'text-gray-900' : 'text-white'
+            }`}>
+              Industry & Career Goals
+            </h3>
+            <p className={`text-sm ${
+              theme === 'light' ? 'text-gray-600' : 'text-gray-400'
+            }`}>
+              What industry interests you and what are your career goals?
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className={`block text-sm font-medium mb-2 ${
+                theme === 'light' ? 'text-gray-700' : 'text-gray-300'
+              }`}>
+                Preferred Industry
+              </label>
+              <select
+                className={`w-full px-4 py-2.5 rounded-lg border focus:ring-2 focus:border-transparent ${
+                  theme === 'light'
+                    ? 'border-gray-300 bg-white text-gray-900 focus:ring-blue-500'
+                    : 'border-gray-600 bg-gray-800 text-white focus:ring-cyan-500'
+                }`}
+                value={profileData.industry || ''}
+                onChange={(e) => updateProfileData('industry', e.target.value)}
+              >
+                <option value="">Select preferred industry</option>
+                {industries.map(industry => (
+                  <option key={industry} value={industry}>{industry}</option>
+                ))}
+              </select>
+            </div>
+
+            <Input
+              label="Career Goal (Optional)"
+              placeholder="e.g., Senior Developer, Team Lead, etc."
+              value={profileData.careerGoal || ''}
+              onChange={(e) => updateProfileData('careerGoal', e.target.value)}
+              icon={<Star className="w-4 h-4" />}
+              fullWidth
+            />
+          </div>
+        </div>
+
+        {/* Online Presence */}
+        <div className="space-y-6">
+          <div className="border-b border-gray-200 dark:border-gray-700 pb-3 mb-6">
+            <h3 className={`text-lg font-semibold ${
+              theme === 'light' ? 'text-gray-900' : 'text-white'
+            }`}>
+              Online Presence
+            </h3>
+            <p className={`text-sm ${
+              theme === 'light' ? 'text-gray-600' : 'text-gray-400'
+            }`}>
+              Share your professional online profiles (optional)
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-6">
+            <Input
+              label="Portfolio Website (Optional)"
+              placeholder="https://johndoe.dev"
+              value={profileData.portfolio || ''}
+              onChange={(e) => updateProfileData('portfolio', e.target.value)}
+              icon={<Globe className="w-4 h-4" />}
+              fullWidth
+            />
+          </div>
         </div>
       </div>
     );
@@ -915,7 +1208,7 @@ export const ProfileCreation: React.FC<ProfileCreationProps> = ({ onComplete, on
         <h4 className={`text-md font-medium mb-2 ${
           theme === 'light' ? 'text-blue-900' : 'text-blue-300'
         }`}>
-          What you'll get with SkillGlide:
+          What you'll get with Munus:
         </h4>
         <ul className={`text-sm space-y-1 ${
           theme === 'light' ? 'text-blue-800' : 'text-blue-400'
@@ -1048,7 +1341,7 @@ export const ProfileCreation: React.FC<ProfileCreationProps> = ({ onComplete, on
         <p className={`${
           theme === 'light' ? 'text-gray-600' : 'text-gray-400'
         }`}>
-          Review your information and create your SkillGlide account
+          Review your information and create your Munus account
         </p>
       </div>
 
@@ -1179,7 +1472,9 @@ export const ProfileCreation: React.FC<ProfileCreationProps> = ({ onComplete, on
           }`}>
             {profileData.userType === 'jobseeker' 
               ? "Let's set up your profile to find the perfect job opportunities"
-              : "Let's set up your company profile to find the best talent"
+              : profileData.userType === 'employer'
+              ? "Let's set up your company profile to find the best talent"
+              : "Let's get started by understanding how you'd like to use our platform"
             }
           </p>
         </div>

@@ -1,10 +1,14 @@
 import os
 import uuid
+import logging
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from app.db.database import get_users_collection
 from app.api.deps import get_current_user
 from app.schemas.mongodb_schemas import MongoDBUser as User
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -25,25 +29,42 @@ MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 
 def validate_file_size(file: UploadFile):
     """Validate file size"""
-    # For now, skip size validation to avoid reading file twice
-    # The file will be validated when saved
-    pass
+    if file.size and file.size > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"File size too large. Maximum size is {MAX_FILE_SIZE // (1024*1024)}MB"
+        )
 
 
 def save_file(file: UploadFile, directory: str) -> str:
     """Save uploaded file and return the file path"""
-    # Generate unique filename
-    file_extension = os.path.splitext(file.filename)[1] if file.filename else ""
-    unique_filename = f"{uuid.uuid4()}{file_extension}"
-    file_path = os.path.join(UPLOAD_DIR, directory, unique_filename)
-    
-    # Save file
-    with open(file_path, "wb") as buffer:
-        content = file.file.read()
-        buffer.write(content)
-    
-    # Return relative path for URL
-    return f"/{file_path}"
+    try:
+        # Generate unique filename
+        file_extension = os.path.splitext(file.filename)[1] if file.filename else ""
+        unique_filename = f"{uuid.uuid4()}{file_extension}"
+        file_path = os.path.join(UPLOAD_DIR, directory, unique_filename)
+        
+        # Save file
+        with open(file_path, "wb") as buffer:
+            content = file.file.read()
+            buffer.write(content)
+        
+        logger.info(f"File saved successfully: {file_path}")
+        
+        # Return relative path for URL
+        return f"/{file_path}"
+    except Exception as e:
+        logger.error(f"Error saving file: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to save file"
+        )
+
+
+@router.post("/test")
+async def test_upload():
+    """Test endpoint to verify upload functionality"""
+    return {"message": "Upload endpoint is working", "status": "ok"}
 
 
 @router.post("/avatar")
@@ -52,15 +73,34 @@ async def upload_avatar(
     current_user: User = Depends(get_current_user)
 ):
     """Upload user avatar"""
-    # Validate file type
-    if file.content_type not in ALLOWED_IMAGE_TYPES:
+    logger.info(f"Avatar upload request from user: {current_user.email}")
+    
+    # Check if file is provided
+    if not file:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid file type. Only images are allowed."
+            detail="No file provided"
+        )
+    
+    # Validate file type
+    if file.content_type not in ALLOWED_IMAGE_TYPES:
+        logger.warning(f"Invalid file type attempted: {file.content_type}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid file type. Allowed types: {', '.join(ALLOWED_IMAGE_TYPES)}"
         )
     
     # Validate file size
-    validate_file_size(file)
+    try:
+        validate_file_size(file)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"File size validation error: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid file size"
+        )
     
     try:
         # Save file
@@ -68,22 +108,25 @@ async def upload_avatar(
         
         # Update user avatar URL in MongoDB
         users_collection = get_users_collection()
-        result = users_collection.update_one(
+        result = await users_collection.update_one(
             {"email": current_user.email},
             {"$set": {"avatar_url": avatar_url}}
         )
         
         if result.matched_count == 0:
+            logger.error(f"User not found in database: {current_user.email}")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="User not found"
             )
         
+        logger.info(f"Avatar uploaded successfully for user: {current_user.email}")
         return {"avatar_url": avatar_url}
         
     except HTTPException:
         raise
     except Exception as e:
+        logger.error(f"Avatar upload error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to upload avatar"
