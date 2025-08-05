@@ -12,7 +12,8 @@ from app.core.config import settings
 from app.db.mongodb import connect_to_mongo, close_mongo_connection
 from app.api.v1.endpoints import (
     mongodb_jobs_clean, mongodb_users, mongodb_notifications, 
-    mongodb_companies, health, auth, upload, ai_chat, resumes, simple_mongodb_jobs
+    mongodb_companies, health, auth, upload, ai_chat, resumes, simple_mongodb_jobs,
+    contact, jobs, mongodb_jobs, notifications, users, companies
 )
 from pydantic import BaseModel
 from twilio.rest import Client
@@ -132,6 +133,14 @@ app.include_router(resumes.router, prefix=f"{settings.API_V1_STR}/resumes", tags
 
 # Include health endpoint
 app.include_router(health.router, prefix=f"{settings.API_V1_STR}/health", tags=["health"])
+
+# Include additional endpoints
+app.include_router(contact.router, prefix=f"{settings.API_V1_STR}/contact", tags=["contact"])
+app.include_router(jobs.router, prefix=f"{settings.API_V1_STR}/basic-jobs", tags=["basic-jobs"])
+app.include_router(mongodb_jobs.router, prefix=f"{settings.API_V1_STR}/mongodb-jobs-advanced", tags=["mongodb-jobs-advanced"])
+app.include_router(notifications.router, prefix=f"{settings.API_V1_STR}/basic-notifications", tags=["basic-notifications"])
+app.include_router(users.router, prefix=f"{settings.API_V1_STR}/basic-users", tags=["basic-users"])
+app.include_router(companies.router, prefix=f"{settings.API_V1_STR}/basic-companies", tags=["basic-companies"])
 
 # Serve static files
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
