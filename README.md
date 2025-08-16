@@ -215,7 +215,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Hugging Face** for transformer models
 - **FastAPI** team for the amazing framework
 - **Vercel** for deployment inspiration
-- **Tailwind CSS** for the beautiful design system
+- **Tailwind CSS** for the beautiful design 
 
 ## 📞 Support
 
